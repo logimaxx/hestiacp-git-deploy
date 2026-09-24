@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# info: delete git deploy config for web domain
+# options: USER DOMAIN
+# labels: panel web
+#
+# example: v-plugin-git-delete alice example.com
+#
+# Removes git-src and git-deploy. Leaves public_html content in place
+# (materialized files from last deploy remain).
+
+set -euo pipefail
+
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+PLUGIN_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
+# shellcheck source=/dev/null
+source "${PLUGIN_ROOT}/func/main.sh"
+# shellcheck source=/dev/null
+source "${PLUGIN_ROOT}/func/deploy-engine.sh"
+hestia_bootstrap
+
+usage() {
+	echo "Usage: v-plugin-git-delete <user> <domain>"
+	exit 1
+}
+
+[[ $# -ge 2 ]] || usage
+
+user="$1"
+domain="$2"
+
+require_root_or_owner "$user"
+validate_user_domain "$user" "$domain"
+
+deploy_dir="$(git_deploy_dir "$user" "$domain")"
+src_dir="$(git_src_dir "$user" "$domain")"
+
+if [[ ! -d "$deploy_dir" && ! -d "$src_dir" ]]; then
+	echo "OK"
+	echo "Nothing to delete for ${domain}"
+	exit 0
+fi
+
+# Ensure public_html is a real directory with content (not a dangling symlink to releases)
+ph="$(public_html_dir "$user" "$domain")"
+if [[ -L "$ph" ]]; then
+	target="$(readlink -f "$ph" 2>/dev/null || true)"
+	if [[ -d "$target" ]]; then
+		tmp="${ph}.materialize.$$"
+		mkdir -p "$tmp"
+		rsync -a "${target}/" "${tmp}/"
+		rm -f "$ph"
+		mv "$tmp" "$ph"
+		chown_site "$user" "$ph"
+	fi
+elif [[ -d "$ph" ]]; then
+	# Already a directory — last sync left files here; nothing to materialize
+	:
+fi
+
+# Wait if deploy running
+if [[ -f "$(lock_path "$user" "$domain")" ]]; then
+	echo "Error: deploy lock present — wait or remove $(lock_path "$user" "$domain")" >&2
+	exit 1
+fi
+
+rm -rf "$src_dir" "$deploy_dir"
+echo "OK"
+echo "Removed git-src and git-deploy for ${domain}"
+echo "public_html left intact"

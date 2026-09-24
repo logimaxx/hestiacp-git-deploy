@@ -1,0 +1,19 @@
+{
+  "name": "git-deploy",
+  "version": "0.1.0",
+  "description": "Deploy HestiaCP web domains from Git repositories with atomic releases and webhook support",
+  "license": "MIT",
+  "homepage": "https://github.com/hestiacp/hestia-cp-deploy-from-git",
+  "requires": {
+    "hestia": ">=1.8.0",
+    "binaries": ["git", "rsync", "ssh-keygen", "openssl", "curl", "timeout"]
+  },
+  "commands": [
+    "v-plugin-git-add",
+    "v-plugin-git-deploy",
+    "v-plugin-git-rollback",
+    "v-plugin-git-delete",
+    "v-plugin-git-list",
+    "v-plugin-git-key-generate"
+  ]
+}

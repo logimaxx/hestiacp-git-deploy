@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# info: add git deploy for web domain
+# options: USER DOMAIN REPO_URL [BRANCH]
+# labels: panel web
+#
+# example: v-plugin-git-add alice example.com git@github.com:org/repo.git main
+#
+# Initializes git-deploy structure, SSH deploy key, known_hosts, config, webhook secret.
+
+set -euo pipefail
+
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+PLUGIN_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
+# shellcheck source=/dev/null
+source "${PLUGIN_ROOT}/func/main.sh"
+hestia_bootstrap
+
+usage() {
+	echo "Usage: v-plugin-git-add <user> <domain> <repo_url> [branch]"
+	exit 1
+}
+
+[[ $# -ge 3 ]] || usage
+
+user="$1"
+domain="$2"
+repo_url="$3"
+branch="${4:-main}"
+
+require_root_or_owner "$user"
+validate_user_domain "$user" "$domain"
+
+deploy_dir="$(git_deploy_dir "$user" "$domain")"
+src_dir="$(git_src_dir "$user" "$domain")"
+cfg="$(config_path "$user" "$domain")"
+
+if [[ -f "$cfg" ]]; then
+	echo "Error: git deploy already configured for ${domain} (delete first or edit config)" >&2
+	exit 1
+fi
+
+mkdir -p "$deploy_dir/releases" "$src_dir"
+chmod 750 "$deploy_dir"
+chown_site "$user" "$deploy_dir" "$src_dir"
+
+# secrets stub
+secrets="$(secrets_path "$user" "$domain")"
+if [[ ! -f "$secrets" ]]; then
+	cat >"$secrets" <<'EOF'
+# Build-only environment (never copied to webroot)
+# GIT_TOKEN=
+# GIT_USERNAME=git
+EOF
+	chmod 600 "$secrets"
+fi
+
+generate_deploy_key "$user" "$domain"
+update_known_hosts "$user" "$domain"
+
+webhook_secret="$(openssl rand -hex 32 2>/dev/null || head -c 32 /dev/urandom | xxd -p -c 32)"
+key_path="$(deploy_key_path "$user" "$domain")"
+
+cat >"$cfg" <<EOF
+REPO_URL=${repo_url}
+BRANCH=${branch}
+AUTH_METHOD=ssh
+INSTALL_CMD=
+OUTPUT_DIR=dist
+EXCLUDE=.git,.env,.env.*,node_modules
+DEPLOY_KEY_PATH=${key_path}
+WEBHOOK_SECRET=${webhook_secret}
+AUTO_DEPLOY=yes
+TIMEOUT_SECONDS=300
+MAX_RELEASES=5
+HEALTHCHECK_URL=
+HEALTHCHECK_EXPECT=200
+GIT_SUBMODULES=no
+LAST_DEPLOYED_COMMIT=
+EOF
+chmod 640 "$cfg"
+
+write_status "$user" "$domain" "idle" "" "" "" "" "" 0 "Initialized"
+: >"$(log_path "$user" "$domain")"
+chown_site "$user" "$deploy_dir"
+
+pub="$(deploy_key_pub_path "$user" "$domain")"
+echo "OK"
+echo "DOMAIN:          ${domain}"
+echo "REPO_URL:        ${repo_url}"
+echo "BRANCH:          ${branch}"
+echo "DEPLOY_KEY_PUB:  ${pub}"
+echo "WEBHOOK_SECRET:  ${webhook_secret}"
+echo ""
+echo "Add the public key as a Deploy Key (read-only) in your Git host:"
+echo "-----"
+cat "$pub"
+echo "-----"
+echo ""
+echo "Next: edit ${cfg} (INSTALL_CMD, OUTPUT_DIR), then run:"
+echo "  v-plugin-git-deploy ${user} ${domain}"

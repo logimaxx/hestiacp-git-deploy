@@ -1,0 +1,177 @@
+#!/usr/bin/env bash
+# info: list git deploy config / status
+# options: USER [DOMAIN] [FORMAT]
+# labels: panel web
+#
+# example: v-plugin-git-list alice
+# example: v-plugin-git-list alice example.com json
+#
+# FORMAT: plain (default) | json | shell
+
+set -euo pipefail
+
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+PLUGIN_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
+# shellcheck source=/dev/null
+source "${PLUGIN_ROOT}/func/main.sh"
+# shellcheck source=/dev/null
+source "${PLUGIN_ROOT}/func/deploy-engine.sh"
+hestia_bootstrap
+
+usage() {
+	echo "Usage: v-plugin-git-list <user> [domain] [format]"
+	exit 1
+}
+
+[[ $# -ge 1 ]] || usage
+
+user="$1"
+domain="${2:-}"
+format="${3:-plain}"
+
+# Allow: list user domain json  OR  list user json (all domains)
+if [[ -n "$domain" && ( "$domain" == "json" || "$domain" == "shell" || "$domain" == "plain" ) ]]; then
+	format="$domain"
+	domain=""
+fi
+
+require_root_or_owner "$user"
+
+if [[ ! "$user" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+	echo "Error: invalid user" >&2
+	exit 1
+fi
+
+list_one() {
+	local u="$1" d="$2" fmt="$3"
+	local cfg
+	cfg="$(config_path "$u" "$d")"
+	if [[ ! -f "$cfg" ]]; then
+		return 1
+	fi
+	# shellcheck disable=SC2034
+	load_config "$u" "$d"
+	local state last_status last_commit last_release pub releases
+	state="$(read_status_field "$u" "$d" state)"
+	last_status="$(read_status_field "$u" "$d" last_status)"
+	last_commit="$(read_status_field "$u" "$d" last_commit)"
+	last_release="$(read_status_field "$u" "$d" last_release)"
+	pub="$(deploy_key_pub_path "$u" "$d")"
+	releases="$(list_release_ids "$u" "$d" | tr '\n' ',' | sed 's/,$//')"
+
+	local secret_masked="***"
+	[[ -n "${WEBHOOK_SECRET:-}" ]] && secret_masked="***set***"
+
+	case "$fmt" in
+		json)
+			python3 -c '
+import json, sys
+print(json.dumps({
+  "DOMAIN": sys.argv[1],
+  "REPO_URL": sys.argv[2],
+  "BRANCH": sys.argv[3],
+  "AUTH_METHOD": sys.argv[4],
+  "INSTALL_CMD": sys.argv[5],
+  "OUTPUT_DIR": sys.argv[6],
+  "EXCLUDE": sys.argv[7],
+  "AUTO_DEPLOY": sys.argv[8],
+  "TIMEOUT_SECONDS": sys.argv[9],
+  "MAX_RELEASES": sys.argv[10],
+  "HEALTHCHECK_URL": sys.argv[11],
+  "GIT_SUBMODULES": sys.argv[12],
+  "LAST_DEPLOYED_COMMIT": sys.argv[13],
+  "WEBHOOK_SECRET": sys.argv[14],
+  "DEPLOY_KEY_PUB": sys.argv[15],
+  "STATE": sys.argv[16],
+  "LAST_STATUS": sys.argv[17],
+  "LAST_COMMIT": sys.argv[18],
+  "LAST_RELEASE": sys.argv[19],
+  "RELEASES": sys.argv[20],
+}, indent=2))
+' "$d" "$REPO_URL" "$BRANCH" "$AUTH_METHOD" "$INSTALL_CMD" "$OUTPUT_DIR" \
+				"$EXCLUDE" "$AUTO_DEPLOY" "$TIMEOUT_SECONDS" "$MAX_RELEASES" \
+				"$HEALTHCHECK_URL" "$GIT_SUBMODULES" "$LAST_DEPLOYED_COMMIT" \
+				"$secret_masked" "$pub" "$state" "$last_status" "$last_commit" \
+				"$last_release" "$releases"
+			;;
+		shell)
+			echo "DOMAIN='${d}'"
+			echo "REPO_URL='${REPO_URL}'"
+			echo "BRANCH='${BRANCH}'"
+			echo "AUTH_METHOD='${AUTH_METHOD}'"
+			echo "INSTALL_CMD='${INSTALL_CMD}'"
+			echo "OUTPUT_DIR='${OUTPUT_DIR}'"
+			echo "AUTO_DEPLOY='${AUTO_DEPLOY}'"
+			echo "LAST_DEPLOYED_COMMIT='${LAST_DEPLOYED_COMMIT}'"
+			echo "STATE='${state}'"
+			echo "LAST_STATUS='${last_status}'"
+			echo "LAST_COMMIT='${last_commit}'"
+			echo "LAST_RELEASE='${last_release}'"
+			echo "RELEASES='${releases}'"
+			echo "DEPLOY_KEY_PUB='${pub}'"
+			;;
+		*)
+			echo "======== ${d} ========"
+			echo "REPO_URL:              ${REPO_URL}"
+			echo "BRANCH:                ${BRANCH}"
+			echo "AUTH_METHOD:           ${AUTH_METHOD}"
+			echo "INSTALL_CMD:           ${INSTALL_CMD}"
+			echo "OUTPUT_DIR:            ${OUTPUT_DIR}"
+			echo "AUTO_DEPLOY:           ${AUTO_DEPLOY}"
+			echo "TIMEOUT_SECONDS:       ${TIMEOUT_SECONDS}"
+			echo "MAX_RELEASES:          ${MAX_RELEASES}"
+			echo "LAST_DEPLOYED_COMMIT:  ${LAST_DEPLOYED_COMMIT}"
+			echo "STATE:                 ${state}"
+			echo "LAST_STATUS:           ${last_status}"
+			echo "LAST_COMMIT:           ${last_commit}"
+			echo "LAST_RELEASE:          ${last_release}"
+			echo "RELEASES:              ${releases}"
+			echo "DEPLOY_KEY_PUB:        ${pub}"
+			echo "WEBHOOK_SECRET:        ${secret_masked}"
+			echo ""
+			;;
+	esac
+	return 0
+}
+
+if [[ -n "$domain" ]]; then
+	validate_user_domain "$user" "$domain"
+	if ! list_one "$user" "$domain" "$format"; then
+		echo "Error: git deploy not configured for ${domain}" >&2
+		exit 1
+	fi
+	exit 0
+fi
+
+home_root="${HESTIA_GIT_HOME:-/home}"
+web_root="${home_root}/${user}/web"
+if [[ ! -d "$web_root" ]]; then
+	echo "Error: no web directory for user ${user}" >&2
+	exit 1
+fi
+
+found=0
+if [[ "$format" == "json" ]]; then
+	echo '['
+fi
+first=1
+for dpath in "$web_root"/*; do
+	[[ -d "$dpath" ]] || continue
+	d="$(basename "$dpath")"
+	[[ -f "$(config_path "$user" "$d")" ]] || continue
+	found=1
+	if [[ "$format" == "json" ]]; then
+		[[ $first -eq 1 ]] || echo ','
+		first=0
+		list_one "$user" "$d" json
+	else
+		list_one "$user" "$d" "$format" || true
+	fi
+done
+if [[ "$format" == "json" ]]; then
+	echo ']'
+fi
+
+if [[ $found -eq 0 ]]; then
+	echo "No git-deploy configurations for user ${user}"
+fi
