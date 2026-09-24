@@ -119,11 +119,12 @@ git_env_prefix() {
 
 do_git_fetch() {
 	local user="$1" domain="$2"
-	local src branch depth_args logfile key
+	local src branch depth_args logfile key parent tmp
 	src="$(git_src_dir "$user" "$domain")"
 	branch="${BRANCH:-main}"
 	logfile="$(log_path "$user" "$domain")"
 	key="$(deploy_key_path "$user" "$domain")"
+	parent="$(dirname "$src")"
 
 	if [[ "${AUTH_METHOD:-ssh}" == "ssh" ]]; then
 		if [[ ! -f "$key" ]]; then
@@ -145,18 +146,23 @@ do_git_fetch() {
 	local envp
 	envp="$(git_env_prefix "$user" "$domain")"
 
+	# Domain web root must be usable; prior root runs may have left root-owned dirs.
+	mkdir -p "$parent"
+	chown_site "$user" "$parent"
+	# Drop stale clone attempts
+	rm -rf "${src}".clone.* 2>/dev/null || true
+
 	if [[ ! -d "$src/.git" ]]; then
 		log_msg "$user" "$domain" "Cloning ${REPO_URL} (branch ${branch})"
-		mkdir -p "$(dirname "$src")"
-		chown_site "$user" "$(dirname "$src")"
-		# Clone into temp then move, so partial clones don't leave broken git-src
-		local tmp
+		# Create staging dir as root, then chown — site user often cannot mkdir in web/
 		tmp="${src}.clone.$$"
 		rm -rf "$tmp"
-		# Capture git/ssh stderr into deploy.log (was previously discarded)
+		mkdir -p "$tmp"
+		chown_site "$user" "$tmp"
+		# git clone into an existing empty directory (avoids "could not create work tree dir")
 		# shellcheck disable=SC2086
 		if ! run_as_user_bash "$user" "export ${envp} GIT_TERMINAL_PROMPT=0; git clone ${depth_args[*]} --branch $(printf %q "$branch") --single-branch $(printf %q "$REPO_URL") $(printf %q "$tmp")" >>"$logfile" 2>&1; then
-			log_msg "$user" "$domain" "git clone failed — common causes: deploy key not added (read-only) on GitHub/GitLab, wrong key, or empty known_hosts"
+			log_msg "$user" "$domain" "git clone failed — check deploy key on GitHub/GitLab, known_hosts, and ownership of ${parent}"
 			rm -rf "$tmp"
 			return 1
 		fi
@@ -165,6 +171,7 @@ do_git_fetch() {
 		chown_site "$user" "$src"
 	else
 		log_msg "$user" "$domain" "Fetching origin/${branch}"
+		chown_site "$user" "$src"
 		# shellcheck disable=SC2086
 		if ! run_as_user_bash "$user" "export ${envp} GIT_TERMINAL_PROMPT=0; cd $(printf %q "$src") && git fetch ${depth_args[*]} origin $(printf %q "$branch") && git reset --hard $(printf %q "origin/${branch}")" >>"$logfile" 2>&1; then
 			log_msg "$user" "$domain" "git fetch failed — check deploy key / network (details above)"
