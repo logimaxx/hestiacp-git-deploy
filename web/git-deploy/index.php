@@ -181,17 +181,16 @@ if (!empty($_POST["token"])) {
         if (!empty($_POST["force"])) {
             $args[] = "force";
         }
-        $bin = git_deploy_bin("v-plugin-git-deploy");
-        $cmd = escapeshellarg($bin);
-        foreach ($args as $a) {
-            $cmd .= " " . escapeshellarg($a);
-        }
-        if (is_executable("/usr/bin/systemd-run")) {
-            exec("sudo /usr/bin/systemd-run --uid=root --collect " . $cmd . " >/dev/null 2>&1 &");
+        // Must stay under /usr/local/hestia/bin/* (hestiaweb sudoers). Do NOT call systemd-run from PHP.
+        $r = git_deploy_run("v-plugin-git-deploy-async", $args);
+        if ($r["code"] !== 0) {
+            $detail = trim((string) $r["output"]);
+            $_SESSION["error_msg"] = $detail !== ""
+                ? $detail
+                : _("Failed to start deploy.");
         } else {
-            exec("sudo " . $cmd . " >/dev/null 2>&1 &");
+            $_SESSION["ok_msg"] = _("Deploy started.");
         }
-        $_SESSION["ok_msg"] = _("Deploy started.");
     }
 
     if ($action === "rollback" && !empty($paths["configured"]) && empty($_SESSION["error_msg"])) {

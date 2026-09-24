@@ -112,6 +112,7 @@ sudo v-plugin-git-list alice example.com json
 | `v-plugin-git-add USER DOMAIN REPO [BRANCH]` | Enable git deploy for a domain |
 | `v-plugin-git-test USER DOMAIN` | Verify SSH/HTTPS access (`git ls-remote`) |
 | `v-plugin-git-deploy USER DOMAIN [force]` | Full deploy (`force` skips commit debounce) |
+| `v-plugin-git-deploy-async USER DOMAIN [force]` | Queue deploy in background (used by UI/webhook) |
 | `v-plugin-git-rollback USER DOMAIN [release_id]` | Switch to previous (or given) release |
 | `v-plugin-git-list USER [DOMAIN] [json\|shell]` | Show config + status |
 | `v-plugin-git-key-generate USER DOMAIN` | Rotate SSH deploy key |

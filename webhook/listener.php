@@ -112,32 +112,16 @@ if ($ref !== '' && $ref !== $expectedRef) {
     exit;
 }
 
-$bin = '/usr/local/hestia/bin/v-plugin-git-deploy';
-if (!is_executable($bin)) {
-    // fallback to plugin path
-    $bin = '/usr/local/hestia/plugins/git-deploy/bin/v-plugin-git-deploy';
+$bin = '/usr/local/hestia/bin/v-plugin-git-deploy-async';
+if (!is_file($bin) && !is_link($bin)) {
+    http_response_code(500);
+    echo "deploy-async binary missing — re-run sudo ./install.sh\n";
+    exit;
 }
 
-$cmd = escapeshellarg($bin) . ' ' . escapeshellarg($user) . ' ' . escapeshellarg($domain);
-$started = false;
+// hestiaweb may only sudo /usr/local/hestia/bin/* — never systemd-run from here
+$cmd = 'sudo ' . escapeshellarg($bin) . ' ' . escapeshellarg($user) . ' ' . escapeshellarg($domain);
+exec($cmd . ' 2>&1', $out, $code);
 
-if (is_executable('/usr/bin/systemd-run')) {
-    // transient unit; detach immediately
-    $full = sprintf(
-        'systemd-run --uid=root --property=Type=oneshot --collect %s >/dev/null 2>&1 &',
-        $cmd
-    );
-    exec($full);
-    $started = true;
-} elseif (is_executable('/usr/bin/at')) {
-    $full = sprintf('echo %s | at now >/dev/null 2>&1', escapeshellarg($cmd));
-    exec($full);
-    $started = true;
-} else {
-    // last resort — background shell (still returns quickly)
-    exec($cmd . ' >/dev/null 2>&1 &');
-    $started = true;
-}
-
-http_response_code(200);
-echo $started ? "accepted\n" : "error\n";
+http_response_code($code === 0 ? 200 : 500);
+echo $code === 0 ? "accepted\n" : ("error\n" . implode("\n", $out) . "\n");

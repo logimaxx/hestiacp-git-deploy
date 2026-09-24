@@ -16,7 +16,8 @@ UI_SHORT="${HESTIA}/web/git-deploy"
 TPL_DST="${HESTIA}/web/templates/pages/git_deploy.php"
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-for name in v-plugin-git-add v-plugin-git-deploy v-plugin-git-rollback \
+for name in v-plugin-git-add v-plugin-git-deploy v-plugin-git-deploy-async \
+	v-plugin-git-rollback \
 	v-plugin-git-delete v-plugin-git-list v-plugin-git-key-generate \
 	v-plugin-git-set v-plugin-git-secret-regenerate v-plugin-git-secrets-write \
 	v-plugin-git-test; do
