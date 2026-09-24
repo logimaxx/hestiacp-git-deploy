@@ -1,19 +1,12 @@
 <?php
 /**
  * Panel-hosted webhook endpoint.
- * URL: /git-deploy/webhook.php?user=...&domain=...
- *      /edit/web/git-deploy/webhook.php?user=...&domain=...
+ * Lives under /usr/local/hestia/web/git-deploy/ after install.
  */
-declare(strict_types=1);
+$_GET["user"] = isset($_GET["user"]) ? $_GET["user"] : (isset($_SERVER["GIT_DEPLOY_USER"]) ? $_SERVER["GIT_DEPLOY_USER"] : "");
+$_GET["domain"] = isset($_GET["domain"]) ? $_GET["domain"] : (isset($_SERVER["GIT_DEPLOY_DOMAIN"]) ? $_SERVER["GIT_DEPLOY_DOMAIN"] : "");
 
-$_GET["user"] = $_GET["user"] ?? ($_SERVER["GIT_DEPLOY_USER"] ?? "");
-$_GET["domain"] = $_GET["domain"] ?? ($_SERVER["GIT_DEPLOY_DOMAIN"] ?? "");
-
-$root = defined("GIT_DEPLOY_PLUGIN_ROOT")
-    ? (string) GIT_DEPLOY_PLUGIN_ROOT
-    : dirname(__DIR__, 2);
-
-$listener = $root . "/webhook/listener.php";
+$listener = __DIR__ . "/listener.php";
 if (!is_file($listener)) {
     $listener = "/usr/local/hestia/plugins/git-deploy/webhook/listener.php";
 }

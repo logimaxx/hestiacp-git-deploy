@@ -46,7 +46,7 @@ https://<panel-host>:8083/git-deploy/?domain=example.com
 
 If you get **404**, `install.sh` was not run on that server (or failed) — the panel only serves files under `/usr/local/hestia/web/`.
 
-If you get **Potential CSRF use detected**, re-run `sudo ./install.sh` (whitelists the page + injects panel links). Prefer opening via the panel buttons above.
+If you get **500 Internal Server Error**, re-run `sudo ./install.sh` (UI is copied into `/usr/local/hestia/web/…`, not loaded from `/plugins`). Check `/var/log/hestia/nginx-error.log` and PHP logs if it persists.
 
 `install.sh` patches Hestia templates (`edit_web.php`, `list_web.php`) to add the links — **Pluginable is not required**. If Pluginable is present, it can add the same links as well.
 

@@ -58,36 +58,34 @@ for cmd in "$PLUGIN_DST"/bin/v-plugin-git-*; do
 	echo "  linked ${BIN_DST}/${name}"
 done
 
-# --- Panel UI: real files under Hestia web root (symlinks to outside web/ often 404) ---
-install_ui_wrapper() {
+# --- Panel UI: full copy under Hestia web root (hestiaweb must not require /plugins) ---
+install_ui_tree() {
 	local dest_dir="$1"
-	mkdir -p "$dest_dir"
-	# index.php — load plugin controller
-	cat >"${dest_dir}/index.php" <<EOF
-<?php
-/**
- * Git Deploy UI bootstrap (installed by install.sh)
- * Do not edit — reinstall overwrites this file.
- */
-define("GIT_DEPLOY_PLUGIN_ROOT", "${PLUGIN_DST}");
-require GIT_DEPLOY_PLUGIN_ROOT . "/web/git-deploy/index.php";
-EOF
-	# webhook.php
-	cat >"${dest_dir}/webhook.php" <<EOF
-<?php
-define("GIT_DEPLOY_PLUGIN_ROOT", "${PLUGIN_DST}");
-require GIT_DEPLOY_PLUGIN_ROOT . "/web/git-deploy/webhook.php";
-EOF
+	rm -rf "$dest_dir"
+	mkdir -p "$dest_dir/lib"
+	cp -f "$PLUGIN_DST/web/git-deploy/index.php" "${dest_dir}/index.php"
+	cp -f "$PLUGIN_DST/web/git-deploy/webhook.php" "${dest_dir}/webhook.php"
+	cp -f "$PLUGIN_DST/webhook/listener.php" "${dest_dir}/listener.php"
+	cp -f "$PLUGIN_DST/web/lib/ui.php" "${dest_dir}/lib/ui.php"
 	chown -R hestiaweb:hestiaweb "$dest_dir" 2>/dev/null || chown -R www-data:www-data "$dest_dir" 2>/dev/null || true
-	chmod 755 "$dest_dir"
-	chmod 644 "${dest_dir}/index.php" "${dest_dir}/webhook.php"
-	echo "  installed ${dest_dir}/index.php"
+	chmod 755 "$dest_dir" "$dest_dir/lib"
+	chmod 644 "${dest_dir}/index.php" "${dest_dir}/webhook.php" "${dest_dir}/listener.php" "${dest_dir}/lib/ui.php"
+	echo "  installed ${dest_dir}/ (self-contained UI)"
 }
 
 # Ensure parent exists (Hestia ships edit/web/)
 mkdir -p "${HESTIA}/web/edit/web"
-install_ui_wrapper "$UI_DST"
-install_ui_wrapper "$UI_SHORT"
+install_ui_tree "$UI_DST"
+install_ui_tree "$UI_SHORT"
+
+# Make plugins tree readable by hestiaweb (CLI still lives there; UI no longer requires it)
+chmod 755 "${HESTIA}/plugins" "$PLUGIN_DST" 2>/dev/null || true
+find "$PLUGIN_DST" -type d -exec chmod 755 {} \; 2>/dev/null || true
+find "$PLUGIN_DST" -type f -exec chmod go+r {} \; 2>/dev/null || true
+# keep bin executable
+chmod 755 "$PLUGIN_DST"/bin/v-plugin-git-* 2>/dev/null || true
+chmod 755 "$PLUGIN_DST"/hooks/*.sh 2>/dev/null || true
+
 
 # Template must live where render_page() looks
 mkdir -p "$(dirname "$TPL_DST")"
