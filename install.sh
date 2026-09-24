@@ -101,15 +101,21 @@ chmod 755 "$PLUGIN_DST"/hooks/*.sh
 # Inject Git Deploy button into Edit Web + List Web (no Pluginable needed)
 "$PLUGIN_DST/hooks/patch-ui-links.sh" || true
 
-# Verify
+# Verify self-contained (must NOT be a wrapper that requires /plugins)
+if grep -q 'GIT_DEPLOY_PLUGIN_ROOT' "${UI_DST}/index.php" 2>/dev/null; then
+	echo "Error: UI index.php still looks like an old wrapper — abort" >&2
+	exit 1
+fi
+if [[ ! -f "${UI_DST}/lib/ui.php" ]]; then
+	echo "Error: ${UI_DST}/lib/ui.php missing" >&2
+	exit 1
+fi
 if [[ ! -f "${UI_DST}/index.php" || ! -f "$TPL_DST" ]]; then
 	echo "Error: UI install incomplete" >&2
 	exit 1
 fi
-if [[ ! -f "${PLUGIN_DST}/web/git-deploy/index.php" ]]; then
-	echo "Error: plugin controller missing" >&2
-	exit 1
-fi
+head -5 "${UI_DST}/index.php"
+echo "  OK self-contained UI at ${UI_DST}"
 
 echo ""
 echo "Installed Git Deploy."

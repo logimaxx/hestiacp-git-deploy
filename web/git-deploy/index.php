@@ -3,39 +3,43 @@
  * Git Deploy — Hestia native UI controller
  * URL: /edit/web/git-deploy/?domain=example.com
  *
- * When installed, this file (and lib/) live under /usr/local/hestia/web/
- * so panel PHP open_basedir / permissions never need /plugins/.
+ * Must live under /usr/local/hestia/web/ (copied by install.sh).
  */
 
-$TAB = "web";
+use function Hestiacp\quoteshellarg\quoteshellarg;
+
+ob_start();
+$TAB = "WEB";
+
+// Soft-init for policies.php (included by main.php before $panel exists)
+$panel = [];
 
 include $_SERVER["DOCUMENT_ROOT"] . "/inc/main.php";
 
-// Prefer local lib (installed next to this file); fallback for repo/dev layout
+// Prefer local lib next to this file (install copies web/git-deploy/lib/ui.php here)
 $lib = __DIR__ . "/lib/ui.php";
 if (!is_file($lib)) {
-    $lib = dirname(__DIR__) . "/lib/ui.php";
-}
-if (!is_file($lib) && defined("GIT_DEPLOY_PLUGIN_ROOT")) {
-    $lib = GIT_DEPLOY_PLUGIN_ROOT . "/web/lib/ui.php";
-}
-if (!is_file($lib)) {
     http_response_code(500);
-    echo "Git Deploy UI library missing. Re-run install.sh";
+    echo "Git Deploy UI library missing at " . htmlspecialchars($lib) . ". Re-run: sudo ./install.sh";
     exit;
 }
 require_once $lib;
 
+// $user / $user_plain are set by main.php (look/impersonation aware)
 $user_plain = git_deploy_hestia_user();
-$user = quoteshellarg($user_plain);
+if ($user_plain === "" && !empty($GLOBALS["user_plain"])) {
+    $user_plain = (string) $GLOBALS["user_plain"];
+}
 
 $v_domain = isset($_GET["domain"]) ? (string) $_GET["domain"] : (string) ($_POST["domain"] ?? "");
 $v_domain = preg_replace('/[^a-zA-Z0-9._-]/', '', $v_domain);
-if ($v_domain === null) {
-    $v_domain = "";
+if ($v_domain === null || $v_domain === "") {
+    $_SESSION["error_msg"] = _("Domain not found.");
+    header("Location: /list/web/");
+    exit();
 }
 
-if ($v_domain === "" || !git_deploy_domain_allowed($user_plain, $v_domain)) {
+if (!git_deploy_domain_allowed($user_plain, $v_domain)) {
     $_SESSION["error_msg"] = _("Domain not found.");
     header("Location: /list/web/");
     exit();
@@ -80,12 +84,20 @@ if (!empty($_POST["token"])) {
     }
 
     if ($action === "save" && !empty($paths["configured"]) && empty($_SESSION["error_msg"])) {
+        $branch = trim((string) ($_POST["branch"] ?? "main"));
+        if ($branch === "") {
+            $branch = "main";
+        }
+        $output_dir = trim((string) ($_POST["output_dir"] ?? "dist"));
+        if ($output_dir === "") {
+            $output_dir = "dist";
+        }
         $pairs = [
             "REPO_URL=" . trim((string) ($_POST["repo_url"] ?? "")),
-            "BRANCH=" . (trim((string) ($_POST["branch"] ?? "main")) !== "" ? trim((string) $_POST["branch"]) : "main"),
+            "BRANCH=" . $branch,
             "AUTH_METHOD=" . ((($_POST["auth_method"] ?? "") === "https") ? "https" : "ssh"),
             "INSTALL_CMD=" . (string) ($_POST["install_cmd"] ?? ""),
-            "OUTPUT_DIR=" . (trim((string) ($_POST["output_dir"] ?? "dist")) !== "" ? trim((string) $_POST["output_dir"]) : "dist"),
+            "OUTPUT_DIR=" . $output_dir,
             "EXCLUDE=" . trim((string) ($_POST["exclude"] ?? ".git,.env,.env.*,node_modules")),
             "AUTO_DEPLOY=" . (!empty($_POST["auto_deploy"]) ? "yes" : "no"),
             "TIMEOUT_SECONDS=" . (preg_match('/^\d+$/', (string) ($_POST["timeout_seconds"] ?? "")) ? (string) $_POST["timeout_seconds"] : "300"),
@@ -182,7 +194,7 @@ if (!empty($_POST["token"])) {
     exit();
 }
 
-// Reload state for render
+// State for template
 $paths = git_deploy_paths($user_plain, $v_domain);
 $cfg = !empty($paths["configured"]) ? git_deploy_read_config($paths["config"]) : git_deploy_read_config("");
 $status = git_deploy_read_status($paths["status"]);
@@ -195,9 +207,11 @@ if (!empty($paths["configured"]) && is_readable($paths["pub"])) {
 $log_tail = !empty($paths["configured"]) ? git_deploy_tail_log($paths["log"]) : "";
 $secrets_masked = !empty($paths["configured"]) ? git_deploy_read_secrets_masked($paths["secrets"]) : "";
 $webhook_url = git_deploy_webhook_url($user_plain, $v_domain);
-$flash_secret = (string) ($_SESSION["git_deploy_flash_secret"] ?? "");
+$flash_secret = isset($_SESSION["git_deploy_flash_secret"]) ? (string) $_SESSION["git_deploy_flash_secret"] : "";
 unset($_SESSION["git_deploy_flash_secret"]);
-
 $v_configured = !empty($paths["configured"]);
 
+// Ensure $panel exists before footer/policies consumers (Hestia expects it from top_panel)
 render_page($user, $TAB, "git_deploy");
+
+$_SESSION["back"] = $_SERVER["REQUEST_URI"];
