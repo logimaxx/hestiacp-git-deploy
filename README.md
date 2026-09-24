@@ -18,6 +18,25 @@ sudo ./install.sh
 
 This copies the plugin to `/usr/local/hestia/plugins/git-deploy` and symlinks `v-plugin-git-*` into `/usr/local/hestia/bin`.
 
+## Web UI
+
+After install, open:
+
+```
+https://<panel-host>:<port>/git-deploy/?domain=example.com
+```
+
+From **Web → Edit domain**, with [Pluginable](https://github.com/virtuosoft-dev/hestiacp-pluginable) installed, a **Git Deploy** button is injected automatically.
+
+The page supports:
+- Enable / configure repo, branch, auth, install command, output dir
+- Deploy now / Force deploy (async) with live status poll
+- Rollback to previous or specific release
+- Copy deploy public key + webhook URL
+- Regenerate deploy key / webhook secret (secret shown once)
+- Build secrets (`secrets.env`, masked until replaced)
+- Disable (keeps `public_html`)
+
 ## Quick start
 
 ```bash
@@ -26,7 +45,7 @@ sudo v-plugin-git-add alice example.com git@github.com:org/site.git main
 
 # 2. Add the printed public key as a read-only Deploy Key in GitHub/GitLab
 
-# 3. Configure build
+# 3. Configure build (or use the UI)
 sudoedit /home/alice/web/example.com/git-deploy/config.conf
 # Set INSTALL_CMD and OUTPUT_DIR, e.g.:
 #   INSTALL_CMD="npm ci && npm run build"
@@ -43,9 +62,13 @@ sudo v-plugin-git-list alice example.com json
 
 | Command | Purpose |
 |---|---|
+| `v-plugin-git-add USER DOMAIN REPO [BRANCH]` | Enable git deploy for a domain |
 | `v-plugin-git-deploy USER DOMAIN [force]` | Full deploy (`force` skips commit debounce) |
 | `v-plugin-git-rollback USER DOMAIN [release_id]` | Switch to previous (or given) release |
+| `v-plugin-git-list USER [DOMAIN] [json\|shell]` | Show config + status |
 | `v-plugin-git-key-generate USER DOMAIN` | Rotate SSH deploy key |
+| `v-plugin-git-set USER DOMAIN KEY=VALUE...` | Update allowed config keys |
+| `v-plugin-git-secret-regenerate USER DOMAIN` | Rotate webhook secret (prints once) |
 | `v-plugin-git-delete USER DOMAIN` | Remove `git-src` + `git-deploy` (keeps `public_html`) |
 
 ## Layout per site
@@ -69,9 +92,8 @@ sudo v-plugin-git-list alice example.com json
 
 Point GitHub/GitLab webhook to the **panel** host (not the site), with the secret from `config.conf`.
 
-Example PHP endpoint: `webhook/listener.php`  
-Query form: `POST /git-deploy/?user=alice&domain=example.com`  
-(or set `GIT_DEPLOY_USER` / `GIT_DEPLOY_DOMAIN` via nginx `fastcgi_param`).
+Example PHP endpoint: `/git-deploy/webhook.php?user=alice&domain=example.com`  
+(or the plugin `webhook/listener.php` behind nginx `fastcgi_param`).
 
 Supports:
 

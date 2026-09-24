@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# info: set git deploy config values
+# options: USER DOMAIN KEY=VALUE [KEY=VALUE...]
+# labels: panel web
+#
+# example: v-plugin-git-set alice example.com BRANCH=main AUTO_DEPLOY=yes
+# example: v-plugin-git-set alice example.com INSTALL_CMD='npm ci && npm run build'
+#
+# Allowed keys only. Values written safely into config.conf.
+
+set -euo pipefail
+
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+PLUGIN_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
+# shellcheck source=/dev/null
+source "${PLUGIN_ROOT}/func/main.sh"
+hestia_bootstrap
+
+usage() {
+	echo "Usage: v-plugin-git-set <user> <domain> KEY=VALUE [KEY=VALUE...]"
+	exit 1
+}
+
+[[ $# -ge 3 ]] || usage
+
+user="$1"
+domain="$2"
+shift 2
+
+require_root_or_owner "$user"
+validate_user_domain "$user" "$domain"
+require_git_deploy "$user" "$domain"
+
+cfg="$(config_path "$user" "$domain")"
+
+ALLOWED='^(REPO_URL|BRANCH|AUTH_METHOD|INSTALL_CMD|OUTPUT_DIR|EXCLUDE|AUTO_DEPLOY|TIMEOUT_SECONDS|MAX_RELEASES|HEALTHCHECK_URL|HEALTHCHECK_EXPECT|GIT_SUBMODULES)$'
+
+quote_value() {
+	local v="$1"
+	# Always double-quote for source-ability; escape existing "
+	v="${v//\\/\\\\}"
+	v="${v//\"/\\\"}"
+	printf '"%s"' "$v"
+}
+
+for pair in "$@"; do
+	if [[ ! "$pair" == *"="* ]]; then
+		echo "Error: expected KEY=VALUE, got: $pair" >&2
+		exit 1
+	fi
+	key="${pair%%=*}"
+	value="${pair#*=}"
+	if [[ ! "$key" =~ $ALLOWED ]]; then
+		echo "Error: key not allowed: $key" >&2
+		exit 1
+	fi
+	case "$key" in
+		AUTH_METHOD)
+			[[ "$value" == "ssh" || "$value" == "https" ]] || {
+				echo "Error: AUTH_METHOD must be ssh or https" >&2
+				exit 1
+			}
+			;;
+		AUTO_DEPLOY | GIT_SUBMODULES)
+			[[ "$value" == "yes" || "$value" == "no" ]] || {
+				echo "Error: $key must be yes or no" >&2
+				exit 1
+			}
+			;;
+		TIMEOUT_SECONDS | MAX_RELEASES | HEALTHCHECK_EXPECT)
+			[[ "$value" =~ ^[0-9]+$ ]] || {
+				echo "Error: $key must be numeric" >&2
+				exit 1
+			}
+			;;
+		OUTPUT_DIR)
+			if [[ "$value" = /* ]]; then
+				echo "Error: OUTPUT_DIR must be relative" >&2
+				exit 1
+			fi
+			;;
+	esac
+	quoted="$(quote_value "$value")"
+	set_config_value "$cfg" "$key" "$quoted"
+done
+
+chown_site "$user" "$cfg"
+echo "OK"

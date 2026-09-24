@@ -133,15 +133,21 @@ load_config() {
 	source "$cfg"
 }
 
-set_config_value() {
+function set_config_value() {
 	local cfg="$1" key="$2" value="$3"
+	local tmp
+	tmp="$(mktemp)"
 	if grep -q "^${key}=" "$cfg" 2>/dev/null; then
-		# Escape for sed; use | delimiter
-		local esc
-		esc="$(printf '%s' "$value" | sed -e 's/[\\&|]/\\&/g')"
-		sed -i "s|^${key}=.*|${key}=${esc}|" "$cfg"
+		awk -v k="$key" -v v="$value" '
+			BEGIN { done=0 }
+			$0 ~ ("^" k "=") && !done { print k "=" v; done=1; next }
+			{ print }
+			END { if (!done) print k "=" v }
+		' "$cfg" >"$tmp"
+		mv -f "$tmp" "$cfg"
 	else
 		printf '%s=%s\n' "$key" "$value" >>"$cfg"
+		rm -f "$tmp"
 	fi
 }
 

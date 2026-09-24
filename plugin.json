@@ -14,6 +14,13 @@
     "v-plugin-git-rollback",
     "v-plugin-git-delete",
     "v-plugin-git-list",
-    "v-plugin-git-key-generate"
-  ]
+    "v-plugin-git-key-generate",
+    "v-plugin-git-set",
+    "v-plugin-git-secret-regenerate",
+    "v-plugin-git-secrets-write"
+  ],
+  "ui": {
+    "path": "/git-deploy/?domain=<domain>",
+    "pluginable_page": "git-deploy"
+  }
 }
