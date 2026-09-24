@@ -11,8 +11,13 @@ PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Hestia bootstrap (optional — scripts still work with minimal fallbacks)
 # ---------------------------------------------------------------------------
 hestia_bootstrap() {
-	# Hestia's sourced files may reference unset vars; don't abort under nounset.
-	local _nounset=0
+	# Hestia sourced files may reference unset vars or run non-zero checks;
+	# don't abort the plugin under nounset/errexit while sourcing them.
+	local _errexit=0 _nounset=0
+	if [[ $- == *e* ]]; then
+		_errexit=1
+		set +e
+	fi
 	if [[ $- == *u* ]]; then
 		_nounset=1
 		set +u
@@ -29,6 +34,9 @@ hestia_bootstrap() {
 	BIN="${BIN:-$HESTIA/bin}"
 	if [[ $_nounset -eq 1 ]]; then
 		set -u
+	fi
+	if [[ $_errexit -eq 1 ]]; then
+		set -e
 	fi
 }
 
@@ -79,6 +87,8 @@ require_root_or_owner() {
 	exit 1
 }
 
+# Prefer filesystem checks; Hestia is_object_valid needs panel globals and can
+# exit oddly when invoked from plugin CLI under sudo.
 validate_user_domain() {
 	local user="$1" domain="$2"
 	if [[ ! "$user" =~ ^[a-zA-Z0-9._-]+$ ]]; then
@@ -98,20 +108,6 @@ validate_user_domain() {
 	if [[ ! -d "$(public_html_dir "$user" "$domain")" ]]; then
 		echo "Error: public_html missing for $domain" >&2
 		exit 1
-	fi
-	# Prefer Hestia object checks when available (may print + exit on failure)
-	if declare -F is_object_valid >/dev/null 2>&1; then
-		# Disable nounset around Hestia helpers that assume panel globals.
-		local _nounset=0
-		if [[ $- == *u* ]]; then
-			_nounset=1
-			set +u
-		fi
-		is_object_valid 'user' 'USER' "$user" || exit 1
-		is_object_valid 'web' 'DOMAIN' "$domain" || exit 1
-		if [[ $_nounset -eq 1 ]]; then
-			set -u
-		fi
 	fi
 }
 

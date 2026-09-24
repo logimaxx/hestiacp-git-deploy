@@ -15,6 +15,9 @@ PLUGIN_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
 source "${PLUGIN_ROOT}/func/main.sh"
 hestia_bootstrap
 
+# Always surface unexpected exits (empty UI errors are hard to debug)
+trap 'rc=$?; if [[ $rc -ne 0 ]]; then echo "Error: v-plugin-git-add failed (exit ${rc})" >&2; fi' EXIT
+
 usage() {
 	echo "Usage: v-plugin-git-add <user> <domain> <repo_url> [branch]"
 	exit 1
@@ -52,6 +55,7 @@ if [[ -f "$cfg" ]]; then
 		cat "$pub"
 		echo "-----"
 	fi
+	trap - EXIT
 	exit 0
 fi
 
@@ -123,3 +127,4 @@ echo "-----"
 echo ""
 echo "Next: edit ${cfg} (INSTALL_CMD, OUTPUT_DIR), then run:"
 echo "  v-plugin-git-deploy ${user} ${domain}"
+trap - EXIT

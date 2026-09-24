@@ -50,12 +50,20 @@ chmod 644 "$PLUGIN_DST"/web/git-deploy/*.php
 chmod 644 "$PLUGIN_DST"/pages/*.php
 chmod 644 "$PLUGIN_DST"/plugin.php "$PLUGIN_DST"/git-deploy-plugin.php
 
-# Symlink CLI into Hestia bin
+# Symlink into Hestia bin is fragile: some sudo builds resolve the target and
+# then deny paths outside /usr/local/hestia/bin/*. Install real wrappers instead.
 mkdir -p "$BIN_DST"
 for cmd in "$PLUGIN_DST"/bin/v-plugin-git-*; do
 	name="$(basename "$cmd")"
-	ln -sfn "$cmd" "${BIN_DST}/${name}"
-	echo "  linked ${BIN_DST}/${name}"
+	target="${PLUGIN_DST}/bin/${name}"
+	wrapper="${BIN_DST}/${name}"
+	rm -f "$wrapper"
+	cat >"$wrapper" <<EOF
+#!/usr/bin/env bash
+exec $(printf '%q' "$target") "\$@"
+EOF
+	chmod 755 "$wrapper"
+	echo "  installed ${wrapper} → ${target}"
 done
 
 # --- Panel UI: full copy under Hestia web root (hestiaweb must not require /plugins) ---
