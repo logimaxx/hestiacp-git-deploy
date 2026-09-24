@@ -5,9 +5,19 @@
 			<a class="button button-secondary button-back js-button-back" href="/edit/web/?domain=<?= tohtml($v_domain) ?>">
 				<i class="fas fa-arrow-left icon-blue"></i><?= tohtml(_("Back")) ?>
 			</a>
+			<?php if (!empty($v_setup)) { ?>
+				<form method="post" class="u-inline">
+					<input type="hidden" name="token" value="<?= tohtml($_SESSION["token"]) ?>">
+					<input type="hidden" name="domain" value="<?= tohtml($v_domain) ?>">
+					<input type="hidden" name="action" value="skip_setup">
+					<button type="submit" class="button button-secondary">
+						<?= tohtml(_("Skip to full settings")) ?>
+					</button>
+				</form>
+			<?php } ?>
 		</div>
 		<div class="toolbar-buttons">
-			<?php if (!empty($v_configured)) { ?>
+			<?php if (!empty($v_configured) && empty($v_setup)) { ?>
 				<form method="post" class="u-inline" onsubmit="return confirm('<?= tohtml(_("Start deploy now?")) ?>');">
 					<input type="hidden" name="token" value="<?= tohtml($_SESSION["token"]) ?>">
 					<input type="hidden" name="domain" value="<?= tohtml($v_domain) ?>">
@@ -50,14 +60,16 @@
 		<?php } ?>
 
 		<?php if (empty($v_configured)) { ?>
-			<p class="u-mb20"><?= tohtml(_("Connect this domain to a Git repository for automated builds and deploys.")) ?></p>
+			<p class="u-mb10"><?= tohtml(_("Connect this domain to a Git repository for automated builds and deploys.")) ?></p>
+			<p class="u-mb20 hint"><?= tohtml(_("Next: we generate a deploy key → you add it to GitHub/GitLab → test the connection → deploy.")) ?></p>
 			<form method="post" id="git-enable-form">
 				<input type="hidden" name="token" value="<?= tohtml($_SESSION["token"]) ?>">
 				<input type="hidden" name="domain" value="<?= tohtml($v_domain) ?>">
 				<input type="hidden" name="action" value="enable">
 				<div class="u-mb10">
-					<label for="repo_url" class="form-label"><?= tohtml(_("Repository URL")) ?></label>
+					<label for="repo_url" class="form-label"><?= tohtml(_("Repository URL (SSH)")) ?></label>
 					<input type="text" class="form-control" name="repo_url" id="repo_url" placeholder="git@github.com:org/repo.git" required>
+					<small class="hint"><?= tohtml(_("Use an SSH URL. After enable you will add a read-only deploy key on the Git host.")) ?></small>
 				</div>
 				<div class="u-mb20">
 					<label for="branch" class="form-label"><?= tohtml(_("Branch")) ?></label>
@@ -67,6 +79,97 @@
 					<i class="fas fa-plug icon-green"></i><?= tohtml(_("Enable Git Deploy")) ?>
 				</button>
 			</form>
+
+		<?php } elseif (!empty($v_setup)) { ?>
+			<p class="u-mb20"><?= tohtml(_("Finish these steps to connect the repository. You can skip anytime and use full settings.")) ?></p>
+
+			<!-- Step 1 -->
+			<div class="u-mb30">
+				<h2 class="u-mb10">1. <?= tohtml(_("Add the deploy key")) ?></h2>
+				<p class="u-mb10 hint"><?= tohtml(_("Copy this public key and add it as a read-only Deploy Key in your repository settings.")) ?></p>
+				<textarea class="form-control u-min-height100" id="gd-pubkey" readonly><?= tohtml($pubkey) ?></textarea>
+				<button type="button" class="button button-secondary u-mt10" onclick="navigator.clipboard.writeText(document.getElementById('gd-pubkey').value)">
+					<i class="fas fa-copy"></i><?= tohtml(_("Copy public key")) ?>
+				</button>
+				<?php if (!empty($key_settings_url)) { ?>
+					<a class="button button-secondary u-mt10" href="<?= tohtml($key_settings_url) ?>" target="_blank" rel="noopener noreferrer">
+						<i class="fas fa-external-link"></i><?= tohtml(_("Open deploy key settings")) ?>
+					</a>
+				<?php } ?>
+				<ul class="u-mt15 hint">
+					<li><?= tohtml(_("GitHub: Settings → Deploy keys → Add deploy key (Allow write access: off)")) ?></li>
+					<li><?= tohtml(_("GitLab: Settings → Repository → Deploy keys")) ?></li>
+				</ul>
+			</div>
+
+			<!-- Step 2 -->
+			<div class="u-mb30">
+				<h2 class="u-mb10">2. <?= tohtml(_("Test connection")) ?></h2>
+				<p class="u-mb10 hint"><?= tohtml(_("Verifies that this server can reach the repository with the deploy key.")) ?></p>
+				<form method="post">
+					<input type="hidden" name="token" value="<?= tohtml($_SESSION["token"]) ?>">
+					<input type="hidden" name="domain" value="<?= tohtml($v_domain) ?>">
+					<input type="hidden" name="action" value="test_connection">
+					<button type="submit" class="button button-secondary">
+						<i class="fas fa-plug"></i><?= tohtml(_("Test connection")) ?>
+					</button>
+				</form>
+			</div>
+
+			<!-- Step 3 -->
+			<div class="u-mb30">
+				<h2 class="u-mb10">3. <?= tohtml(_("Build settings")) ?></h2>
+				<p class="u-mb10 hint"><?= tohtml(_("Optional. Leave install command empty to publish files as-is from the output directory.")) ?></p>
+				<form method="post">
+					<input type="hidden" name="token" value="<?= tohtml($_SESSION["token"]) ?>">
+					<input type="hidden" name="domain" value="<?= tohtml($v_domain) ?>">
+					<input type="hidden" name="action" value="save_setup">
+					<div class="u-mb10">
+						<label for="install_cmd" class="form-label"><?= tohtml(_("Install command")) ?></label>
+						<input type="text" class="form-control" name="install_cmd" id="install_cmd" value="<?= tohtml($cfg["INSTALL_CMD"] ?? "") ?>" placeholder="npm ci && npm run build">
+					</div>
+					<div class="u-mb15">
+						<label for="output_dir" class="form-label"><?= tohtml(_("Output directory")) ?></label>
+						<input type="text" class="form-control" name="output_dir" id="output_dir" value="<?= tohtml($cfg["OUTPUT_DIR"] ?? "dist") ?>">
+					</div>
+					<button type="submit" class="button button-secondary">
+						<i class="fas fa-floppy-disk"></i><?= tohtml(_("Save build settings")) ?>
+					</button>
+				</form>
+			</div>
+
+			<!-- Step 4 -->
+			<div class="u-mb20">
+				<h2 class="u-mb10">4. <?= tohtml(_("First deploy")) ?></h2>
+				<p class="u-mb10 hint"><?= tohtml(_("Runs clone → build → publish. After a successful deploy you will get the full settings page.")) ?></p>
+				<form method="post" onsubmit="return confirm('<?= tohtml(_("Start first deploy now?")) ?>');">
+					<input type="hidden" name="token" value="<?= tohtml($_SESSION["token"]) ?>">
+					<input type="hidden" name="domain" value="<?= tohtml($v_domain) ?>">
+					<input type="hidden" name="action" value="deploy">
+					<button type="submit" class="button" <?= ($status["state"] ?? "") === "running" ? "disabled" : "" ?>>
+						<i class="fas fa-rocket icon-green"></i><?= tohtml(_("Deploy now")) ?>
+					</button>
+				</form>
+				<?php if (($status["state"] ?? "") === "running") { ?>
+					<p class="u-mt10" id="gd-setup-running"><?= tohtml(_("Deploy in progress…")) ?></p>
+					<script>
+					(function () {
+						var domain = <?= json_encode($v_domain) ?>;
+						function poll() {
+							fetch(<?= json_encode($ui_base . "/") ?> + '?domain=' + encodeURIComponent(domain) + '&ajax=status', { credentials: 'same-origin' })
+								.then(function (r) { return r.json(); })
+								.then(function (s) {
+									if (s.state === 'running') setTimeout(poll, 2000);
+									else location.reload();
+								})
+								.catch(function () { setTimeout(poll, 3000); });
+						}
+						poll();
+					})();
+					</script>
+				<?php } ?>
+			</div>
+
 		<?php } else { ?>
 
 			<!-- Status -->
@@ -108,6 +211,11 @@
 					<button type="button" class="button button-secondary u-mt10" onclick="navigator.clipboard.writeText(document.getElementById('gd-pubkey').value)">
 						<i class="fas fa-copy"></i><?= tohtml(_("Copy")) ?>
 					</button>
+					<?php if (!empty($key_settings_url)) { ?>
+						<a class="button button-secondary u-mt10" href="<?= tohtml($key_settings_url) ?>" target="_blank" rel="noopener noreferrer">
+							<i class="fas fa-external-link"></i><?= tohtml(_("Open settings")) ?>
+						</a>
+					<?php } ?>
 				</div>
 
 				<h2 class="u-mb10"><?= tohtml(_("Build")) ?></h2>
@@ -172,6 +280,12 @@
 
 			<!-- Side actions -->
 			<div class="u-mb20">
+				<form method="post" class="u-inline">
+					<input type="hidden" name="token" value="<?= tohtml($_SESSION["token"]) ?>">
+					<input type="hidden" name="domain" value="<?= tohtml($v_domain) ?>">
+					<input type="hidden" name="action" value="test_connection">
+					<button type="submit" class="button button-secondary"><?= tohtml(_("Test connection")) ?></button>
+				</form>
 				<form method="post" class="u-inline">
 					<input type="hidden" name="token" value="<?= tohtml($_SESSION["token"]) ?>">
 					<input type="hidden" name="domain" value="<?= tohtml($v_domain) ?>">
@@ -253,10 +367,6 @@
 						.then(function (r) { return r.json(); })
 						.then(function (s) {
 							box.setAttribute('data-state', s.state || 'idle');
-							['state','last_status','last_commit','last_release','message'].forEach(function (k) {
-								var el = document.getElementById('gd-' + k.replace('_', '-'));
-								// map keys to ids
-							});
 							var map = {
 								state: 'gd-state',
 								last_status: 'gd-last-status',

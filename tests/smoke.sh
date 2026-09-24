@@ -83,8 +83,13 @@ sed -i 's|^AUTH_METHOD=.*|AUTH_METHOD=https|' "$CFG"
 sed -i 's|^INSTALL_CMD=.*|INSTALL_CMD=|' "$CFG"
 sed -i 's|^OUTPUT_DIR=.*|OUTPUT_DIR=dist|' "$CFG"
 
+echo "== test connection =="
+"$BIN/v-plugin-git-test" "$USER_NAME" "$DOMAIN" | grep -q '^OK$'
+
 echo "== deploy v2 (HEAD) =="
 FORCE_DEPLOY=1 "$BIN/v-plugin-git-deploy" "$USER_NAME" "$DOMAIN" force
+
+grep -q '^SETUP_DONE=yes$' "$CFG" || grep -q '^SETUP_DONE="yes"$' "$CFG"
 
 PH="${HESTIA_GIT_HOME}/${USER_NAME}/web/${DOMAIN}/public_html/index.html"
 grep -q 'v2' "$PH"

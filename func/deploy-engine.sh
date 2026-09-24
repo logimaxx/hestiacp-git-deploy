@@ -323,6 +323,7 @@ run_deploy() {
 		end_epoch="$(date +%s)"
 		duration=$((end_epoch - start_epoch))
 		log_msg "$user" "$domain" "Already deployed commit ${shortsha} — noop"
+		set_config_value "$cfg" "SETUP_DONE" "yes"
 		write_status "$user" "$domain" "idle" "success" "$shortsha" \
 			"$(current_release_id "$user" "$domain")" "$started" "$finished" "$duration" "already deployed"
 		release_lock "$user" "$domain"
@@ -369,6 +370,7 @@ run_deploy() {
 
 	cleanup_old_releases "$user" "$domain"
 	set_config_value "$cfg" "LAST_DEPLOYED_COMMIT" "$shortsha"
+	set_config_value "$cfg" "SETUP_DONE" "yes"
 
 	finished="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 	end_epoch="$(date +%s)"

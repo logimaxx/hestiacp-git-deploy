@@ -78,8 +78,49 @@ if (!empty($_POST["token"])) {
                 if (preg_match('/WEBHOOK_SECRET:\s*(\S+)/', $r["output"], $m)) {
                     $_SESSION["git_deploy_flash_secret"] = $m[1];
                 }
-                $_SESSION["ok_msg"] = _("Git Deploy enabled. Add the deploy key to your Git host.");
+                $_SESSION["ok_msg"] = _("Git Deploy enabled. Follow the setup steps below — start by adding the deploy key to your Git host.");
             }
+        }
+    }
+
+    if ($action === "save_setup" && !empty($paths["configured"]) && empty($_SESSION["error_msg"])) {
+        $output_dir = trim((string) ($_POST["output_dir"] ?? "dist"));
+        if ($output_dir === "") {
+            $output_dir = "dist";
+        }
+        $pairs = [
+            "INSTALL_CMD=" . (string) ($_POST["install_cmd"] ?? ""),
+            "OUTPUT_DIR=" . $output_dir,
+        ];
+        $r = git_deploy_run("v-plugin-git-set", array_merge([$user_plain, $v_domain], $pairs));
+        if ($r["code"] !== 0) {
+            $_SESSION["error_msg"] = $r["output"] !== "" ? $r["output"] : _("Failed to save build settings.");
+        } else {
+            $_SESSION["ok_msg"] = _("Build settings saved.");
+        }
+    }
+
+    if ($action === "test_connection" && !empty($paths["configured"]) && empty($_SESSION["error_msg"])) {
+        $r = git_deploy_run("v-plugin-git-test", [$user_plain, $v_domain]);
+        if ($r["code"] !== 0) {
+            $_SESSION["error_msg"] = $r["output"] !== "" ? $r["output"] : _("Connection test failed. Add the deploy key on your Git host and try again.");
+        } else {
+            $commit = "";
+            if (preg_match('/COMMIT:\s*(\S+)/', $r["output"], $m)) {
+                $commit = $m[1];
+            }
+            $_SESSION["ok_msg"] = $commit !== ""
+                ? sprintf(_("Connection OK — remote branch reachable (commit %s)."), $commit)
+                : _("Connection OK — remote branch reachable.");
+        }
+    }
+
+    if ($action === "skip_setup" && !empty($paths["configured"]) && empty($_SESSION["error_msg"])) {
+        $r = git_deploy_run("v-plugin-git-set", [$user_plain, $v_domain, "SETUP_DONE=yes"]);
+        if ($r["code"] !== 0) {
+            $_SESSION["error_msg"] = $r["output"] !== "" ? $r["output"] : _("Failed to skip setup.");
+        } else {
+            $_SESSION["ok_msg"] = _("Setup skipped. You can change settings anytime.");
         }
     }
 
@@ -210,6 +251,8 @@ $webhook_url = git_deploy_webhook_url($user_plain, $v_domain);
 $flash_secret = isset($_SESSION["git_deploy_flash_secret"]) ? (string) $_SESSION["git_deploy_flash_secret"] : "";
 unset($_SESSION["git_deploy_flash_secret"]);
 $v_configured = !empty($paths["configured"]);
+$v_setup = $v_configured && git_deploy_setup_needed($cfg, $status);
+$key_settings_url = $v_configured ? git_deploy_key_settings_url($cfg["REPO_URL"] ?? "") : "";
 
 // Ensure $panel exists before footer/policies consumers (Hestia expects it from top_panel)
 render_page($user, $TAB, "git_deploy");

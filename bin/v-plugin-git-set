@@ -33,7 +33,7 @@ require_git_deploy "$user" "$domain"
 
 cfg="$(config_path "$user" "$domain")"
 
-ALLOWED='^(REPO_URL|BRANCH|AUTH_METHOD|INSTALL_CMD|OUTPUT_DIR|EXCLUDE|AUTO_DEPLOY|TIMEOUT_SECONDS|MAX_RELEASES|HEALTHCHECK_URL|HEALTHCHECK_EXPECT|GIT_SUBMODULES)$'
+ALLOWED='^(REPO_URL|BRANCH|AUTH_METHOD|INSTALL_CMD|OUTPUT_DIR|EXCLUDE|AUTO_DEPLOY|TIMEOUT_SECONDS|MAX_RELEASES|HEALTHCHECK_URL|HEALTHCHECK_EXPECT|GIT_SUBMODULES|SETUP_DONE)$'
 
 quote_value() {
 	local v="$1"
@@ -61,7 +61,7 @@ for pair in "$@"; do
 				exit 1
 			}
 			;;
-		AUTO_DEPLOY | GIT_SUBMODULES)
+		AUTO_DEPLOY | GIT_SUBMODULES | SETUP_DONE)
 			[[ "$value" == "yes" || "$value" == "no" ]] || {
 				echo "Error: $key must be yes or no" >&2
 				exit 1

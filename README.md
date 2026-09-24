@@ -51,6 +51,7 @@ If you get **500 Internal Server Error**, re-run `sudo ./install.sh` (UI is copi
 `install.sh` patches Hestia templates (`edit_web.php`, `list_web.php`) to add the links — **Pluginable is not required**. If Pluginable is present, it can add the same links as well.
 
 The page supports:
+- Guided connect after enable: deploy key → test connection → build → first deploy
 - Enable / configure repo, branch, auth, install command, output dir
 - Deploy now / Force deploy (async) with live status poll
 - Rollback to previous or specific release
@@ -61,22 +62,37 @@ The page supports:
 
 ## Quick start
 
+### From the panel (recommended)
+
+1. Open **Web → domain → Git Deploy**
+2. Enter the SSH repo URL and branch → **Enable Git Deploy**
+3. Follow the setup checklist:
+   - Copy the deploy key → add as a read-only Deploy Key on GitHub/GitLab
+   - **Test connection**
+   - Set install command / output dir (optional)
+   - **Deploy now**
+
+### From the CLI
+
 ```bash
 # 1. Initialize (prints deploy public key + webhook secret once)
 sudo v-plugin-git-add alice example.com git@github.com:org/site.git main
 
 # 2. Add the printed public key as a read-only Deploy Key in GitHub/GitLab
 
-# 3. Configure build (or use the UI)
+# 3. Verify access
+sudo v-plugin-git-test alice example.com
+
+# 4. Configure build (or use the UI)
 sudoedit /home/alice/web/example.com/git-deploy/config.conf
 # Set INSTALL_CMD and OUTPUT_DIR, e.g.:
 #   INSTALL_CMD="npm ci && npm run build"
 #   OUTPUT_DIR=dist
 
-# 4. Deploy
+# 5. Deploy
 sudo v-plugin-git-deploy alice example.com
 
-# 5. Inspect
+# 6. Inspect
 sudo v-plugin-git-list alice example.com json
 ```
 
@@ -85,6 +101,7 @@ sudo v-plugin-git-list alice example.com json
 | Command | Purpose |
 |---|---|
 | `v-plugin-git-add USER DOMAIN REPO [BRANCH]` | Enable git deploy for a domain |
+| `v-plugin-git-test USER DOMAIN` | Verify SSH/HTTPS access (`git ls-remote`) |
 | `v-plugin-git-deploy USER DOMAIN [force]` | Full deploy (`force` skips commit debounce) |
 | `v-plugin-git-rollback USER DOMAIN [release_id]` | Switch to previous (or given) release |
 | `v-plugin-git-list USER [DOMAIN] [json\|shell]` | Show config + status |

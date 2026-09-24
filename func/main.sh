@@ -129,6 +129,7 @@ load_config() {
 	HEALTHCHECK_EXPECT="200"
 	GIT_SUBMODULES="no"
 	LAST_DEPLOYED_COMMIT=""
+	SETUP_DONE="no"
 	# shellcheck source=/dev/null
 	source "$cfg"
 }

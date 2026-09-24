@@ -96,6 +96,7 @@ function git_deploy_read_config($path) {
         "GIT_SUBMODULES" => "no",
         "LAST_DEPLOYED_COMMIT" => "",
         "WEBHOOK_SECRET" => "",
+        "SETUP_DONE" => "no",
     ];
     if ($path === "" || !is_readable($path)) {
         return $out;
@@ -210,6 +211,56 @@ function git_deploy_webhook_url($user, $domain) {
     return git_deploy_panel_host() .
         "/git-deploy/webhook.php?" .
         http_build_query(["user" => $user, "domain" => $domain]);
+}
+
+/**
+ * Parse REPO_URL into owner/repo and return a host settings URL for deploy keys, or "".
+ * Supports git@host:owner/repo.git and https://host/owner/repo.git
+ */
+function git_deploy_key_settings_url($repo_url) {
+    $repo_url = trim((string) $repo_url);
+    if ($repo_url === "") {
+        return "";
+    }
+    $host = "";
+    $path = "";
+    if (preg_match('#^git@([^:]+):(.+)$#', $repo_url, $m)) {
+        $host = strtolower($m[1]);
+        $path = $m[2];
+    } elseif (preg_match('#^ssh://git@([^/]+)/(.+)$#', $repo_url, $m)) {
+        $host = strtolower($m[1]);
+        $path = $m[2];
+    } elseif (preg_match('#^https?://([^/]+)/(.+)$#', $repo_url, $m)) {
+        $host = strtolower($m[1]);
+        $path = $m[2];
+    } else {
+        return "";
+    }
+    $path = preg_replace('#\.git$#', "", $path);
+    $path = trim($path, "/");
+    if ($path === "" || strpos($path, "/") === false) {
+        return "";
+    }
+    if ($host === "github.com" || substr($host, -11) === ".github.com") {
+        return "https://github.com/" . $path . "/settings/keys";
+    }
+    if ($host === "gitlab.com" || strpos($host, "gitlab") !== false) {
+        return "https://" . $host . "/" . $path . "/-/settings/repository";
+    }
+    if ($host === "bitbucket.org") {
+        return "https://bitbucket.org/" . $path . "/admin/access-keys/";
+    }
+    return "";
+}
+
+function git_deploy_setup_needed($cfg, $status) {
+    if (($cfg["SETUP_DONE"] ?? "no") === "yes") {
+        return false;
+    }
+    if (($status["last_status"] ?? "") === "success") {
+        return false;
+    }
+    return true;
 }
 
 function git_deploy_tail_log($path, $lines = 80) {

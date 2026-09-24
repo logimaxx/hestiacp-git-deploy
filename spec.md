@@ -99,6 +99,7 @@ HEALTHCHECK_URL=                # gol = dezactivat; ex. http://127.0.0.1/ cu Hos
 HEALTHCHECK_EXPECT=200
 GIT_SUBMODULES=no               # yes necesită clone non-shallow sau fetch submodule
 LAST_DEPLOYED_COMMIT=           # actualizat la succes; folosit pentru debounce webhook
+SETUP_DONE=no                   # yes după skip setup sau primul deploy reușit (UI checklist)
 ```
 
 Reguli:
@@ -129,6 +130,7 @@ Reguli:
 | Comandă | Descriere |
 |---|---|
 | `v-plugin-git-add <user> <domain> <repo_url> <branch>` | Inițializează: structură, deploy key / secrets stub, `known_hosts`, config, webhook secret |
+| `v-plugin-git-test <user> <domain>` | Verifică accesul la remote (`git ls-remote`) cu deploy key / HTTPS helper |
 | `v-plugin-git-deploy <user> <domain>` | Flux complet: lock → fetch → install → release → switch → healthcheck → log |
 | `v-plugin-git-rollback <user> <domain> [release_id]` | Switch la release anterior (default) sau la `release_id` explicit |
 | `v-plugin-git-delete <user> <domain>` | Elimină config + `git-src` + `git-deploy` (webroot/release activ: politică — păstrează conținutul curent materializat, rupe legătura git) |
