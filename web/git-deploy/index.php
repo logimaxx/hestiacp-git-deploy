@@ -73,12 +73,19 @@ if (!empty($_POST["token"])) {
         } else {
             $r = git_deploy_run("v-plugin-git-add", [$user_plain, $v_domain, $repo, $branch]);
             if ($r["code"] !== 0) {
-                $_SESSION["error_msg"] = $r["output"] !== "" ? $r["output"] : _("Failed to enable Git Deploy.");
+                $detail = trim((string) $r["output"]);
+                $_SESSION["error_msg"] = $detail !== ""
+                    ? $detail
+                    : _("Failed to enable Git Deploy.");
             } else {
                 if (preg_match('/WEBHOOK_SECRET:\s*(\S+)/', $r["output"], $m)) {
                     $_SESSION["git_deploy_flash_secret"] = $m[1];
                 }
-                $_SESSION["ok_msg"] = _("Git Deploy enabled. Follow the setup steps below — start by adding the deploy key to your Git host.");
+                if (strpos($r["output"], "already configured") !== false) {
+                    $_SESSION["ok_msg"] = _("Git Deploy was already enabled. Continuing setup — add the deploy key if you have not yet.");
+                } else {
+                    $_SESSION["ok_msg"] = _("Git Deploy enabled. Follow the setup steps below — start by adding the deploy key to your Git host.");
+                }
             }
         }
     }

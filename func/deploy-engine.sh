@@ -378,6 +378,7 @@ run_deploy() {
 	log_msg "$user" "$domain" "==== Deploy OK: ${release_id} (${duration}s) ===="
 	write_status "$user" "$domain" "idle" "success" "$shortsha" "$release_id" \
 		"$started" "$finished" "$duration" "Deploy OK"
+	fix_git_deploy_perms "$user" "$domain"
 	release_lock "$user" "$domain"
 	return 0
 }

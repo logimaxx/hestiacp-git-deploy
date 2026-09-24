@@ -11,6 +11,12 @@ PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Hestia bootstrap (optional — scripts still work with minimal fallbacks)
 # ---------------------------------------------------------------------------
 hestia_bootstrap() {
+	# Hestia's sourced files may reference unset vars; don't abort under nounset.
+	local _nounset=0
+	if [[ $- == *u* ]]; then
+		_nounset=1
+		set +u
+	fi
 	if [[ -f /etc/hestiacp/hestia.conf ]]; then
 		# shellcheck disable=SC1091
 		source /etc/hestiacp/hestia.conf
@@ -21,6 +27,9 @@ hestia_bootstrap() {
 	fi
 	HESTIA="${HESTIA:-/usr/local/hestia}"
 	BIN="${BIN:-$HESTIA/bin}"
+	if [[ $_nounset -eq 1 ]]; then
+		set -u
+	fi
 }
 
 # ---------------------------------------------------------------------------
@@ -90,10 +99,19 @@ validate_user_domain() {
 		echo "Error: public_html missing for $domain" >&2
 		exit 1
 	fi
-	# Prefer Hestia object checks when available
+	# Prefer Hestia object checks when available (may print + exit on failure)
 	if declare -F is_object_valid >/dev/null 2>&1; then
+		# Disable nounset around Hestia helpers that assume panel globals.
+		local _nounset=0
+		if [[ $- == *u* ]]; then
+			_nounset=1
+			set +u
+		fi
 		is_object_valid 'user' 'USER' "$user" || exit 1
 		is_object_valid 'web' 'DOMAIN' "$domain" || exit 1
+		if [[ $_nounset -eq 1 ]]; then
+			set -u
+		fi
 	fi
 }
 
@@ -190,6 +208,33 @@ chown_site() {
 	if [[ $(id -u) -eq 0 ]]; then
 		chown -R "${user}:${user}" "$@"
 	fi
+}
+
+# Ensure panel (hestiaweb) can read config/status/pubkey under git-deploy/
+# while keeping private key + secrets private.
+fix_git_deploy_perms() {
+	local user="$1" domain="$2"
+	local d cfg secrets status log pub key kh
+	d="$(git_deploy_dir "$user" "$domain")"
+	[[ -d "$d" ]] || return 0
+	# Traverse for hestiaweb (world execute on dirs; files stay locked down)
+	chmod 755 "$d" 2>/dev/null || true
+	chmod 755 "$d/releases" 2>/dev/null || true
+	cfg="$(config_path "$user" "$domain")"
+	status="$(status_path "$user" "$domain")"
+	log="$(log_path "$user" "$domain")"
+	pub="$(deploy_key_pub_path "$user" "$domain")"
+	key="$(deploy_key_path "$user" "$domain")"
+	secrets="$(secrets_path "$user" "$domain")"
+	kh="$(known_hosts_path "$user" "$domain")"
+	[[ -f "$cfg" ]] && chmod 644 "$cfg"
+	[[ -f "$status" ]] && chmod 644 "$status"
+	[[ -f "$log" ]] && chmod 644 "$log"
+	[[ -f "$pub" ]] && chmod 644 "$pub"
+	[[ -f "$kh" ]] && chmod 644 "$kh"
+	[[ -f "$key" ]] && chmod 600 "$key"
+	[[ -f "$secrets" ]] && chmod 600 "$secrets"
+	chown_site "$user" "$d"
 }
 
 # ---------------------------------------------------------------------------
@@ -317,6 +362,8 @@ generate_deploy_key() {
 	chmod 600 "$key"
 	chmod 644 "$pub"
 	chown_site "$user" "$key" "$pub"
+	# Keep pubkey readable by panel
+	chmod 644 "$pub" 2>/dev/null || true
 }
 
 update_known_hosts() {

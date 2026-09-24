@@ -35,12 +35,28 @@ src_dir="$(git_src_dir "$user" "$domain")"
 cfg="$(config_path "$user" "$domain")"
 
 if [[ -f "$cfg" ]]; then
-	echo "Error: git deploy already configured for ${domain} (delete first or edit config)" >&2
-	exit 1
+	# Idempotent: panel may re-POST enable if it couldn't read config (perms).
+	# Refresh perms and print existing key so UI can continue setup.
+	fix_git_deploy_perms "$user" "$domain"
+	pub="$(deploy_key_pub_path "$user" "$domain")"
+	echo "OK"
+	echo "DOMAIN:          ${domain}"
+	echo "REPO_URL:        $(grep -E '^REPO_URL=' "$cfg" | head -1 | cut -d= -f2-)"
+	echo "BRANCH:          $(grep -E '^BRANCH=' "$cfg" | head -1 | cut -d= -f2-)"
+	echo "DEPLOY_KEY_PUB:  ${pub}"
+	echo "NOTE:            already configured"
+	if [[ -f "$pub" ]]; then
+		echo ""
+		echo "Add the public key as a Deploy Key (read-only) in your Git host:"
+		echo "-----"
+		cat "$pub"
+		echo "-----"
+	fi
+	exit 0
 fi
 
 mkdir -p "$deploy_dir/releases" "$src_dir"
-chmod 750 "$deploy_dir"
+chmod 755 "$deploy_dir"
 chown_site "$user" "$deploy_dir" "$src_dir"
 
 # secrets stub
@@ -60,15 +76,23 @@ update_known_hosts "$user" "$domain"
 webhook_secret="$(openssl rand -hex 32 2>/dev/null || head -c 32 /dev/urandom | xxd -p -c 32)"
 key_path="$(deploy_key_path "$user" "$domain")"
 
+# Quote values so `source config.conf` is safe
+quote_cfg() {
+	local v="$1"
+	v="${v//\\/\\\\}"
+	v="${v//\"/\\\"}"
+	printf '"%s"' "$v"
+}
+
 cat >"$cfg" <<EOF
-REPO_URL=${repo_url}
-BRANCH=${branch}
+REPO_URL=$(quote_cfg "$repo_url")
+BRANCH=$(quote_cfg "$branch")
 AUTH_METHOD=ssh
 INSTALL_CMD=
 OUTPUT_DIR=dist
 EXCLUDE=.git,.env,.env.*,node_modules
-DEPLOY_KEY_PATH=${key_path}
-WEBHOOK_SECRET=${webhook_secret}
+DEPLOY_KEY_PATH=$(quote_cfg "$key_path")
+WEBHOOK_SECRET=$(quote_cfg "$webhook_secret")
 AUTO_DEPLOY=yes
 TIMEOUT_SECONDS=300
 MAX_RELEASES=5
@@ -78,11 +102,11 @@ GIT_SUBMODULES=no
 LAST_DEPLOYED_COMMIT=
 SETUP_DONE=no
 EOF
-chmod 640 "$cfg"
+chmod 644 "$cfg"
 
 write_status "$user" "$domain" "idle" "" "" "" "" "" 0 "Initialized"
 : >"$(log_path "$user" "$domain")"
-chown_site "$user" "$deploy_dir"
+fix_git_deploy_perms "$user" "$domain"
 
 pub="$(deploy_key_pub_path "$user" "$domain")"
 echo "OK"

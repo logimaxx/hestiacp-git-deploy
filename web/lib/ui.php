@@ -32,10 +32,18 @@ function git_deploy_bin($cmd) {
 }
 
 function git_deploy_run($cmd, $args = []) {
+    $bin = "/usr/local/hestia/bin/" . $cmd;
+    if (!is_file($bin) && !is_link($bin)) {
+        return [
+            "code" => 127,
+            "output" => "Command not found: {$bin}. Re-run: sudo ./install.sh on the panel host.",
+            "lines" => [],
+        ];
+    }
     if (defined("HESTIA_CMD")) {
         $full = HESTIA_CMD . $cmd;
     } else {
-        $full = "sudo /usr/local/hestia/bin/" . $cmd;
+        $full = "sudo " . $bin;
     }
     foreach ($args as $a) {
         $full .= " " . escapeshellarg((string) $a);
@@ -43,9 +51,13 @@ function git_deploy_run($cmd, $args = []) {
     $output = [];
     $code = 0;
     exec($full . " 2>&1", $output, $code);
+    $text = implode("\n", $output);
+    if ($code !== 0 && trim($text) === "") {
+        $text = "Command failed (exit {$code}): {$cmd}. Check that hestiaweb can sudo /usr/local/hestia/bin/{$cmd} (see /etc/sudoers.d/hestiaweb).";
+    }
     return [
         "code" => $code,
-        "output" => implode("\n", $output),
+        "output" => $text,
         "lines" => $output,
     ];
 }

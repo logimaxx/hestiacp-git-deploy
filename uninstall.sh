@@ -18,7 +18,8 @@ SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 for name in v-plugin-git-add v-plugin-git-deploy v-plugin-git-rollback \
 	v-plugin-git-delete v-plugin-git-list v-plugin-git-key-generate \
-	v-plugin-git-set v-plugin-git-secret-regenerate v-plugin-git-secrets-write; do
+	v-plugin-git-set v-plugin-git-secret-regenerate v-plugin-git-secrets-write \
+	v-plugin-git-test; do
 	if [[ -L "${BIN_DST}/${name}" || -f "${BIN_DST}/${name}" ]]; then
 		rm -f "${BIN_DST}/${name}"
 		echo "removed ${BIN_DST}/${name}"
