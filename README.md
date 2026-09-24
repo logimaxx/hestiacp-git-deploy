@@ -27,13 +27,18 @@ cd /path/to/hestia-cp-deploy-from-git
 sudo ./install.sh
 ```
 
-Then open (port is usually **8083**):
+Then open from the panel (preferred — avoids CSRF issues):
+
+- **Web** → icon **Git Deploy** pe rândul domeniului  
+- sau **Web → Edit domain → Git Deploy**
+
+Direct URL (port tipic **8083**):
 
 ```
 https://<panel-host>:8083/edit/web/git-deploy/?domain=example.com
 ```
 
-Alias (same page):
+Alias:
 
 ```
 https://<panel-host>:8083/git-deploy/?domain=example.com
@@ -41,7 +46,9 @@ https://<panel-host>:8083/git-deploy/?domain=example.com
 
 If you get **404**, `install.sh` was not run on that server (or failed) — the panel only serves files under `/usr/local/hestia/web/`.
 
-With [Pluginable](https://github.com/virtuosoft-dev/hestiacp-pluginable), a **Git Deploy** button is also added on Edit Web / List Web.
+If you get **Potential CSRF use detected**, re-run `sudo ./install.sh` (whitelists the page + injects panel links). Prefer opening via the panel buttons above.
+
+`install.sh` patches Hestia templates (`edit_web.php`, `list_web.php`) to add the links — **Pluginable is not required**. If Pluginable is present, it can add the same links as well.
 
 The page supports:
 - Enable / configure repo, branch, auth, install command, output dir

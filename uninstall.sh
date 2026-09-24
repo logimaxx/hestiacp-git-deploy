@@ -14,6 +14,7 @@ BIN_DST="${HESTIA}/bin"
 UI_DST="${HESTIA}/web/edit/web/git-deploy"
 UI_SHORT="${HESTIA}/web/git-deploy"
 TPL_DST="${HESTIA}/web/templates/pages/git_deploy.php"
+SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 for name in v-plugin-git-add v-plugin-git-deploy v-plugin-git-rollback \
 	v-plugin-git-delete v-plugin-git-list v-plugin-git-key-generate \
@@ -27,6 +28,19 @@ done
 rm -f "$TPL_DST"
 rm -rf "$UI_DST" "$UI_SHORT"
 rm -f /etc/sudoers.d/hestia-git-deploy
+
+# Undo UI + CSRF patches before removing plugin files
+if [[ -f "${PLUGIN_DST}/hooks/unpatch-ui-links.sh" ]]; then
+	bash "${PLUGIN_DST}/hooks/unpatch-ui-links.sh" || true
+elif [[ -f "${SRC}/hooks/unpatch-ui-links.sh" ]]; then
+	bash "${SRC}/hooks/unpatch-ui-links.sh" || true
+fi
+
+if [[ -f "${PLUGIN_DST}/hooks/unpatch-csrf-whitelist.sh" ]]; then
+	bash "${PLUGIN_DST}/hooks/unpatch-csrf-whitelist.sh" || true
+elif [[ -f "${SRC}/hooks/unpatch-csrf-whitelist.sh" ]]; then
+	bash "${SRC}/hooks/unpatch-csrf-whitelist.sh" || true
+fi
 
 if [[ -d "$PLUGIN_DST" ]]; then
 	rm -rf "$PLUGIN_DST"

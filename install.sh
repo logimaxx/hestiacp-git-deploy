@@ -96,6 +96,13 @@ chown hestiaweb:hestiaweb "$TPL_DST" 2>/dev/null || chown www-data:www-data "$TP
 chmod 644 "$TPL_DST"
 echo "  installed ${TPL_DST}"
 
+# Allow direct GET to UI (Hestia CSRF blocks bookmark/no-Referer otherwise)
+chmod 755 "$PLUGIN_DST"/hooks/*.sh
+"$PLUGIN_DST/hooks/patch-csrf-whitelist.sh" || true
+
+# Inject Git Deploy button into Edit Web + List Web (no Pluginable needed)
+"$PLUGIN_DST/hooks/patch-ui-links.sh" || true
+
 # Verify
 if [[ ! -f "${UI_DST}/index.php" || ! -f "$TPL_DST" ]]; then
 	echo "Error: UI install incomplete" >&2
@@ -109,15 +116,15 @@ fi
 echo ""
 echo "Installed Git Deploy."
 echo ""
-echo "UI (use this URL):"
-echo "  https://<panel-host>:8083/edit/web/git-deploy/?domain=example.com"
+echo "Open from the panel:"
+echo "  Web → domain row → Git Deploy icon"
+echo "  or Web → Edit domain → Git Deploy button"
 echo ""
-echo "Also available:"
-echo "  https://<panel-host>:8083/git-deploy/?domain=example.com"
+echo "Direct URL:"
+echo "  https://<panel-host>:8083/edit/web/git-deploy/?domain=example.com"
 echo ""
 echo "Webhook:"
 echo "  https://<panel-host>:8083/git-deploy/webhook.php?user=USER&domain=DOMAIN"
 echo ""
 echo "CLI: v-plugin-git-add|deploy|rollback|list|delete|set|..."
-echo "Optional: hestiacp-pluginable adds a Git Deploy button on Edit Web."
 echo "OK"
