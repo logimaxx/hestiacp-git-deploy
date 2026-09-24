@@ -382,7 +382,22 @@ git_ssh_command() {
 	local key kh
 	key="$(deploy_key_path "$user" "$domain")"
 	kh="$(known_hosts_path "$user" "$domain")"
-	printf 'ssh -i %q -o IdentitiesOnly=yes -o UserKnownHostsFile=%q -o StrictHostKeyChecking=yes' "$key" "$kh"
+	# BatchMode: never prompt for a password (panel/async has no TTY)
+	printf 'ssh -i %q -o IdentitiesOnly=yes -o UserKnownHostsFile=%q -o StrictHostKeyChecking=yes -o BatchMode=yes -o ConnectTimeout=20' "$key" "$kh"
+}
+
+# Ensure known_hosts has github/gitlab entries (ssh-keyscan can fail at enable time).
+ensure_known_hosts() {
+	local user="$1" domain="$2"
+	local kh
+	kh="$(known_hosts_path "$user" "$domain")"
+	if [[ ! -s "$kh" ]] || ! grep -q 'github.com\|gitlab.com\|bitbucket.org' "$kh" 2>/dev/null; then
+		log_msg "$user" "$domain" "Refreshing known_hosts (ssh-keyscan)"
+		update_known_hosts "$user" "$domain"
+	fi
+	if [[ ! -s "$kh" ]]; then
+		log_msg "$user" "$domain" "WARN: known_hosts is empty — SSH host key verification will fail"
+	fi
 }
 
 # Build GIT_ASKPASS helper for HTTPS token auth

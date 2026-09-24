@@ -119,9 +119,22 @@ git_env_prefix() {
 
 do_git_fetch() {
 	local user="$1" domain="$2"
-	local src branch depth_args
+	local src branch depth_args logfile key
 	src="$(git_src_dir "$user" "$domain")"
 	branch="${BRANCH:-main}"
+	logfile="$(log_path "$user" "$domain")"
+	key="$(deploy_key_path "$user" "$domain")"
+
+	if [[ "${AUTH_METHOD:-ssh}" == "ssh" ]]; then
+		if [[ ! -f "$key" ]]; then
+			log_msg "$user" "$domain" "FAIL: deploy key missing at ${key}"
+			return 1
+		fi
+		# Site user must own/read the key (ssh rejects group/world-readable keys)
+		chmod 600 "$key" 2>/dev/null || true
+		chown_site "$user" "$key"
+		ensure_known_hosts "$user" "$domain"
+	fi
 
 	if [[ "${GIT_SUBMODULES:-no}" == "yes" ]]; then
 		depth_args=()
@@ -135,12 +148,15 @@ do_git_fetch() {
 	if [[ ! -d "$src/.git" ]]; then
 		log_msg "$user" "$domain" "Cloning ${REPO_URL} (branch ${branch})"
 		mkdir -p "$(dirname "$src")"
+		chown_site "$user" "$(dirname "$src")"
 		# Clone into temp then move, so partial clones don't leave broken git-src
 		local tmp
 		tmp="${src}.clone.$$"
 		rm -rf "$tmp"
+		# Capture git/ssh stderr into deploy.log (was previously discarded)
 		# shellcheck disable=SC2086
-		if ! run_as_user_bash "$user" "export ${envp}; git clone ${depth_args[*]} --branch $(printf %q "$branch") --single-branch $(printf %q "$REPO_URL") $(printf %q "$tmp")"; then
+		if ! run_as_user_bash "$user" "export ${envp} GIT_TERMINAL_PROMPT=0; git clone ${depth_args[*]} --branch $(printf %q "$branch") --single-branch $(printf %q "$REPO_URL") $(printf %q "$tmp")" >>"$logfile" 2>&1; then
+			log_msg "$user" "$domain" "git clone failed — common causes: deploy key not added (read-only) on GitHub/GitLab, wrong key, or empty known_hosts"
 			rm -rf "$tmp"
 			return 1
 		fi
@@ -150,14 +166,18 @@ do_git_fetch() {
 	else
 		log_msg "$user" "$domain" "Fetching origin/${branch}"
 		# shellcheck disable=SC2086
-		if ! run_as_user_bash "$user" "export ${envp}; cd $(printf %q "$src") && git fetch ${depth_args[*]} origin $(printf %q "$branch") && git reset --hard $(printf %q "origin/${branch}")"; then
+		if ! run_as_user_bash "$user" "export ${envp} GIT_TERMINAL_PROMPT=0; cd $(printf %q "$src") && git fetch ${depth_args[*]} origin $(printf %q "$branch") && git reset --hard $(printf %q "origin/${branch}")" >>"$logfile" 2>&1; then
+			log_msg "$user" "$domain" "git fetch failed — check deploy key / network (details above)"
 			return 1
 		fi
 	fi
 
 	if [[ "${GIT_SUBMODULES:-no}" == "yes" ]]; then
 		# shellcheck disable=SC2086
-		run_as_user_bash "$user" "export ${envp}; cd $(printf %q "$src") && git submodule update --init --recursive" || return 1
+		if ! run_as_user_bash "$user" "export ${envp} GIT_TERMINAL_PROMPT=0; cd $(printf %q "$src") && git submodule update --init --recursive" >>"$logfile" 2>&1; then
+			log_msg "$user" "$domain" "git submodule update failed (details above)"
+			return 1
+		fi
 	fi
 	return 0
 }
