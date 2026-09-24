@@ -12,7 +12,15 @@ if (!function_exists("tohtml")) {
 }
 
 function git_deploy_plugin_root(): string {
+    if (defined("GIT_DEPLOY_PLUGIN_ROOT")) {
+        return (string) GIT_DEPLOY_PLUGIN_ROOT;
+    }
     return dirname(__DIR__, 2);
+}
+
+/** Panel UI base path (no trailing slash). */
+function git_deploy_ui_base(): string {
+    return "/edit/web/git-deploy";
 }
 
 function git_deploy_hestia_user(): string {

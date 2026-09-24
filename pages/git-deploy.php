@@ -8,5 +8,5 @@ if ($domain === "") {
     header("Location: /list/web/");
     exit;
 }
-header("Location: /git-deploy/?domain=" . rawurlencode($domain));
+header("Location: /edit/web/git-deploy/?domain=" . rawurlencode($domain));
 exit;

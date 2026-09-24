@@ -11,7 +11,8 @@ fi
 HESTIA="${HESTIA:-/usr/local/hestia}"
 PLUGIN_DST="${HESTIA}/plugins/git-deploy"
 BIN_DST="${HESTIA}/bin"
-WEB_DST="${HESTIA}/web/git-deploy"
+UI_DST="${HESTIA}/web/edit/web/git-deploy"
+UI_SHORT="${HESTIA}/web/git-deploy"
 TPL_DST="${HESTIA}/web/templates/pages/git_deploy.php"
 
 for name in v-plugin-git-add v-plugin-git-deploy v-plugin-git-rollback \
@@ -24,7 +25,7 @@ for name in v-plugin-git-add v-plugin-git-deploy v-plugin-git-rollback \
 done
 
 rm -f "$TPL_DST"
-rm -rf "$WEB_DST"
+rm -rf "$UI_DST" "$UI_SHORT"
 rm -f /etc/sudoers.d/hestia-git-deploy
 
 if [[ -d "$PLUGIN_DST" ]]; then

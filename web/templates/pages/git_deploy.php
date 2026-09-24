@@ -249,7 +249,7 @@
 				var domain = <?= json_encode($v_domain) ?>;
 				function poll() {
 					if (box.getAttribute('data-state') !== 'running') return;
-					fetch('/git-deploy/?domain=' + encodeURIComponent(domain) + '&ajax=status', { credentials: 'same-origin' })
+					fetch(<?= json_encode($ui_base . "/") ?> + '?domain=' + encodeURIComponent(domain) + '&ajax=status', { credentials: 'same-origin' })
 						.then(function (r) { return r.json(); })
 						.then(function (s) {
 							box.setAttribute('data-state', s.state || 'idle');

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Install Git Deploy plugin into a HestiaCP host.
-# Run as root.
+# Run as root on the panel server.
 
 set -euo pipefail
 
@@ -13,8 +13,16 @@ SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HESTIA="${HESTIA:-/usr/local/hestia}"
 PLUGIN_DST="${HESTIA}/plugins/git-deploy"
 BIN_DST="${HESTIA}/bin"
-WEB_DST="${HESTIA}/web/git-deploy"
+# Primary UI path (matches Hestia /edit/web/... layout)
+UI_DST="${HESTIA}/web/edit/web/git-deploy"
+# Legacy/short path + webhook
+UI_SHORT="${HESTIA}/web/git-deploy"
 TPL_DST="${HESTIA}/web/templates/pages/git_deploy.php"
+
+if [[ ! -d "${HESTIA}/web" ]]; then
+	echo "Error: ${HESTIA}/web not found — is HestiaCP installed on this host?" >&2
+	exit 1
+fi
 
 for dep in git rsync ssh-keygen openssl; do
 	if ! command -v "$dep" >/dev/null 2>&1; then
@@ -50,35 +58,66 @@ for cmd in "$PLUGIN_DST"/bin/v-plugin-git-*; do
 	echo "  linked ${BIN_DST}/${name}"
 done
 
-# Native UI under panel web root
-rm -rf "$WEB_DST"
-ln -sfn "$PLUGIN_DST/web/git-deploy" "$WEB_DST"
-ln -sfn "$PLUGIN_DST/web/templates/pages/git_deploy.php" "$TPL_DST"
-# lib is referenced as ../lib from git-deploy/ — ensure sibling exists
-mkdir -p "${HESTIA}/web"
-# When WEB_DST is symlink to plugin/web/git-deploy, ../lib resolves to plugin/web/lib — OK
-echo "  linked ${WEB_DST}"
-echo "  linked ${TPL_DST}"
-
-# Allow hestia-php/www-data to sudo the plugin commands if sudoers snippet missing
-SUDOERS="/etc/sudoers.d/hestia-git-deploy"
-if [[ ! -f "$SUDOERS" ]] && [[ -d /etc/sudoers.d ]]; then
-	cat >"$SUDOERS" <<EOF
-# Allow Hestia panel to invoke Git Deploy CLI
-Defaults:admin !requiretty
-Cmnd_Alias HESTIA_GIT_DEPLOY = ${BIN_DST}/v-plugin-git-add, ${BIN_DST}/v-plugin-git-deploy, ${BIN_DST}/v-plugin-git-rollback, ${BIN_DST}/v-plugin-git-delete, ${BIN_DST}/v-plugin-git-list, ${BIN_DST}/v-plugin-git-key-generate, ${BIN_DST}/v-plugin-git-set, ${BIN_DST}/v-plugin-git-secret-regenerate, ${BIN_DST}/v-plugin-git-secrets-write
-# Hestia already uses sudo for bin/*; this documents the plugin commands.
+# --- Panel UI: real files under Hestia web root (symlinks to outside web/ often 404) ---
+install_ui_wrapper() {
+	local dest_dir="$1"
+	mkdir -p "$dest_dir"
+	# index.php — load plugin controller
+	cat >"${dest_dir}/index.php" <<EOF
+<?php
+/**
+ * Git Deploy UI bootstrap (installed by install.sh)
+ * Do not edit — reinstall overwrites this file.
+ */
+define("GIT_DEPLOY_PLUGIN_ROOT", "${PLUGIN_DST}");
+require GIT_DEPLOY_PLUGIN_ROOT . "/web/git-deploy/index.php";
 EOF
-	chmod 440 "$SUDOERS"
-	echo "  wrote ${SUDOERS} (informational; Hestia sudoers usually covers /usr/local/hestia/bin/*)"
+	# webhook.php
+	cat >"${dest_dir}/webhook.php" <<EOF
+<?php
+define("GIT_DEPLOY_PLUGIN_ROOT", "${PLUGIN_DST}");
+require GIT_DEPLOY_PLUGIN_ROOT . "/web/git-deploy/webhook.php";
+EOF
+	chown -R hestiaweb:hestiaweb "$dest_dir" 2>/dev/null || chown -R www-data:www-data "$dest_dir" 2>/dev/null || true
+	chmod 755 "$dest_dir"
+	chmod 644 "${dest_dir}/index.php" "${dest_dir}/webhook.php"
+	echo "  installed ${dest_dir}/index.php"
+}
+
+# Ensure parent exists (Hestia ships edit/web/)
+mkdir -p "${HESTIA}/web/edit/web"
+install_ui_wrapper "$UI_DST"
+install_ui_wrapper "$UI_SHORT"
+
+# Template must live where render_page() looks
+mkdir -p "$(dirname "$TPL_DST")"
+cp -f "$PLUGIN_DST/web/templates/pages/git_deploy.php" "$TPL_DST"
+chown hestiaweb:hestiaweb "$TPL_DST" 2>/dev/null || chown www-data:www-data "$TPL_DST" 2>/dev/null || true
+chmod 644 "$TPL_DST"
+echo "  installed ${TPL_DST}"
+
+# Verify
+if [[ ! -f "${UI_DST}/index.php" || ! -f "$TPL_DST" ]]; then
+	echo "Error: UI install incomplete" >&2
+	exit 1
+fi
+if [[ ! -f "${PLUGIN_DST}/web/git-deploy/index.php" ]]; then
+	echo "Error: plugin controller missing" >&2
+	exit 1
 fi
 
 echo ""
 echo "Installed Git Deploy."
 echo ""
-echo "UI:  https://<panel>/git-deploy/?domain=example.com"
-echo "CLI: v-plugin-git-add|deploy|rollback|list|delete|key-generate|set|secret-regenerate"
+echo "UI (use this URL):"
+echo "  https://<panel-host>:8083/edit/web/git-deploy/?domain=example.com"
 echo ""
-echo "Optional: install hestiacp-pluginable for Edit/List Web buttons."
-echo "Webhook: ${WEB_DST}/webhook.php?user=USER&domain=DOMAIN"
+echo "Also available:"
+echo "  https://<panel-host>:8083/git-deploy/?domain=example.com"
+echo ""
+echo "Webhook:"
+echo "  https://<panel-host>:8083/git-deploy/webhook.php?user=USER&domain=DOMAIN"
+echo ""
+echo "CLI: v-plugin-git-add|deploy|rollback|list|delete|set|..."
+echo "Optional: hestiacp-pluginable adds a Git Deploy button on Edit Web."
 echo "OK"

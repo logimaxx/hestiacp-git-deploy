@@ -20,13 +20,28 @@ This copies the plugin to `/usr/local/hestia/plugins/git-deploy` and symlinks `v
 
 ## Web UI
 
-After install, open:
+On the **Hestia panel host**, install first:
+
+```bash
+cd /path/to/hestia-cp-deploy-from-git
+sudo ./install.sh
+```
+
+Then open (port is usually **8083**):
 
 ```
-https://<panel-host>:<port>/git-deploy/?domain=example.com
+https://<panel-host>:8083/edit/web/git-deploy/?domain=example.com
 ```
 
-From **Web → Edit domain**, with [Pluginable](https://github.com/virtuosoft-dev/hestiacp-pluginable) installed, a **Git Deploy** button is injected automatically.
+Alias (same page):
+
+```
+https://<panel-host>:8083/git-deploy/?domain=example.com
+```
+
+If you get **404**, `install.sh` was not run on that server (or failed) — the panel only serves files under `/usr/local/hestia/web/`.
+
+With [Pluginable](https://github.com/virtuosoft-dev/hestiacp-pluginable), a **Git Deploy** button is also added on Edit Web / List Web.
 
 The page supports:
 - Enable / configure repo, branch, auth, install command, output dir

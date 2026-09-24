@@ -23,7 +23,7 @@ class Git_Deploy_Plugin extends HCPP_Hooks {
             return $xpath;
         }
         $a = $xpath->document->createElement("a");
-        $a->setAttribute("href", "/git-deploy/?domain=" . rawurlencode((string) $domain));
+        $a->setAttribute("href", "/edit/web/git-deploy/?domain=" . rawurlencode((string) $domain));
         $a->setAttribute("class", "button button-secondary");
         $a->setAttribute("title", "Git Deploy");
         $icon = $xpath->document->createElement("i");
@@ -80,7 +80,7 @@ class Git_Deploy_Plugin extends HCPP_Hooks {
         $li = $xpath->document->createElement("li");
         $li->setAttribute("class", "units-table-row-action");
         $a = $xpath->document->createElement("a");
-        $a->setAttribute("href", "/git-deploy/?domain=" . rawurlencode($domain));
+        $a->setAttribute("href", "/edit/web/git-deploy/?domain=" . rawurlencode($domain));
         $a->setAttribute("title", "Git Deploy: " . $domain);
         $icon = $xpath->document->createElement("i");
         $icon->setAttribute("class", "fas fa-code-branch icon-green");

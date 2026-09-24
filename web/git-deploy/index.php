@@ -1,7 +1,8 @@
 <?php
 /**
  * Git Deploy — Hestia native UI controller
- * URL: /git-deploy/?domain=example.com
+ * URL: /edit/web/git-deploy/?domain=example.com
+ *      /git-deploy/?domain=example.com  (alias)
  */
 
 declare(strict_types=1);
@@ -9,7 +10,11 @@ declare(strict_types=1);
 $TAB = "web";
 
 include $_SERVER["DOCUMENT_ROOT"] . "/inc/main.php";
-require_once dirname(__DIR__) . "/lib/ui.php";
+
+$pluginRoot = defined("GIT_DEPLOY_PLUGIN_ROOT")
+    ? (string) GIT_DEPLOY_PLUGIN_ROOT
+    : dirname(__DIR__, 2);
+require_once $pluginRoot . "/web/lib/ui.php";
 
 $user_plain = git_deploy_hestia_user();
 $user = quoteshellarg($user_plain);
@@ -22,6 +27,8 @@ if ($v_domain === "" || !git_deploy_domain_allowed($user_plain, $v_domain)) {
     header("Location: /list/web/");
     exit();
 }
+
+$ui_base = git_deploy_ui_base();
 
 // JSON status poll
 if (isset($_GET["ajax"]) && $_GET["ajax"] === "status") {
@@ -160,7 +167,7 @@ if (!empty($_POST["token"])) {
         }
     }
 
-    header("Location: /git-deploy/?domain=" . rawurlencode($v_domain));
+    header("Location: " . $ui_base . "/?domain=" . rawurlencode($v_domain));
     exit();
 }
 

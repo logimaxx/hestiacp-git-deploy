@@ -20,7 +20,7 @@
     "v-plugin-git-secrets-write"
   ],
   "ui": {
-    "path": "/git-deploy/?domain=<domain>",
+    "path": "/edit/web/git-deploy/?domain=<domain>",
     "pluginable_page": "git-deploy"
   }
 }
