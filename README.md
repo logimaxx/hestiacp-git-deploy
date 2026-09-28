@@ -2,7 +2,18 @@
 
 Plugin for [Hestia Control Panel](https://hestiacp.com/) that deploys a web domain from a Git repository: clone → install/build → atomic release → optional webhook auto-deploy → rollback.
 
-See [spec.md](./spec.md) for the full design.
+## Documentation
+
+| Doc | Description |
+|---|---|
+| **[docs/index.md](./docs/index.md)** | Documentation home |
+| **[docs/USAGE.md](./docs/USAGE.md)** | Concepts, config reference, CLI, webhook, security |
+| [PHP app](./docs/scenarios/php-app.md) | Laravel / Symfony / PHP (`OUTPUT_DIR=.`) |
+| [Node.js static](./docs/scenarios/nodejs-static.md) | Vite / Next export / Astro → `dist` / `out` |
+| [PHP + frontend](./docs/scenarios/php-with-frontend.md) | Composer + `npm run build` |
+| [Plain static](./docs/scenarios/plain-static.md) | No build step |
+| [Troubleshooting](./docs/TROUBLESHOOTING.md) | Common failures |
+| [spec.md](./spec.md) | Full design / architecture |
 
 ## Requirements
 
