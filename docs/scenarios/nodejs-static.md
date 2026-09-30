@@ -18,14 +18,32 @@ git-src/  →  npm ci && npm run build  →  dist/ (or out/)  →  public_html/
 
 ## Core settings
 
+**Preferred:** ship a repo script and keep the panel thin:
+
+```bash
+# .hestia-install.sh in the repo:
+#   #!/usr/bin/env bash
+#   set -euo pipefail
+#   npm ci && npm run build
+
+sudo v-plugin-git-set alice www.example.com \
+  INSTALL_CMD='bash .hestia-install.sh' \
+  OUTPUT_DIR=dist \
+  TIMEOUT_SECONDS=600
+```
+
+Full guide: **[Install script](../install-script.md)**.
+
 | Key | Typical value |
 |---|---|
-| `INSTALL_CMD` | `npm ci && npm run build` |
+| `INSTALL_CMD` | `bash .hestia-install.sh` (or inline `npm ci && npm run build`) |
 | `OUTPUT_DIR` | `dist` (Vite/Vue/Astro default), `build` (CRA), `out` (Next export), `public` (some SSGs) |
 | `EXCLUDE` | defaults are usually enough |
 | `TIMEOUT_SECONDS` | `300`–`900` for large installs |
 
 ### Vite / Vue / React (Vite) / Astro
+
+Inline (or the body of `.hestia-install.sh`):
 
 ```bash
 sudo v-plugin-git-set alice www.example.com \
@@ -33,7 +51,6 @@ sudo v-plugin-git-set alice www.example.com \
   OUTPUT_DIR=dist \
   TIMEOUT_SECONDS=600
 ```
-
 Confirm the folder in `package.json` / vite config (`build.outDir`).
 
 ### Create React App
@@ -152,6 +169,7 @@ curl -I https://www.example.com/
 
 ## Related
 
+- **[Install script](../install-script.md)**
 - [PHP + frontend](./php-with-frontend.md) — when the same repo also serves PHP
 - [Plain static](./plain-static.md) — no Node build
 - [Troubleshooting](../TROUBLESHOOTING.md)

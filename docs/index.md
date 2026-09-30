@@ -9,6 +9,7 @@ Plugin that deploys a Hestia web domain from a Git repository:
 | Doc | What it covers |
 |---|---|
 | [Usage guide](./USAGE.md) | Concepts, first deploy, config reference, CLI, webhook, security |
+| **[Install script](./install-script.md)** | **Recommended:** commit `.hestia-install.sh` and set `INSTALL_CMD='bash .hestia-install.sh'` |
 | [PHP application](./scenarios/php-app.md) | Laravel, Symfony, WordPress-like PHP apps (`OUTPUT_DIR=.`) |
 | [Node.js static site](./scenarios/nodejs-static.md) | Vite / Next export / Astro / Vue / React build → `dist` |
 | [PHP + frontend build](./scenarios/php-with-frontend.md) | Composer + npm in one deploy |

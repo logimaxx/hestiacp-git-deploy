@@ -10,6 +10,23 @@ One repository that needs **Composer** and an **npm/Vite (or similar) asset buil
 
 ## Core settings
 
+**Preferred:** one script in git that runs both steps:
+
+```bash
+# .hestia-install.sh
+#   composer install --no-dev --optimize-autoloader
+#   npm ci && npm run build
+#   php artisan config:cache   # if applicable
+
+sudo v-plugin-git-set alice app.example.com \
+  INSTALL_CMD='bash .hestia-install.sh' \
+  OUTPUT_DIR=. \
+  EXCLUDE='.git,.env,.env.*,node_modules,tests,.github' \
+  TIMEOUT_SECONDS=900
+```
+
+See **[Install script](../install-script.md)**. Inline equivalent:
+
 ```bash
 sudo v-plugin-git-set alice app.example.com \
   INSTALL_CMD='composer install --no-dev --optimize-autoloader && npm ci && npm run build' \
@@ -54,5 +71,6 @@ See [PHP application](./php-app.md) for `.env`, `storage/`, and document-root (`
 
 ## Related
 
+- **[Install script](../install-script.md)**
 - [PHP application](./php-app.md)
 - [Node.js static site](./nodejs-static.md)

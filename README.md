@@ -8,6 +8,7 @@ Plugin for [Hestia Control Panel](https://hestiacp.com/) that deploys a web doma
 |---|---|
 | **[docs/index.md](./docs/index.md)** | Documentation home |
 | **[docs/USAGE.md](./docs/USAGE.md)** | Concepts, config reference, CLI, webhook, security |
+| **[docs/install-script.md](./docs/install-script.md)** | Commit `.hestia-install.sh`; set `INSTALL_CMD='bash .hestia-install.sh'` |
 | [PHP app](./docs/scenarios/php-app.md) | Laravel / Symfony / PHP (`OUTPUT_DIR=.`) |
 | [Node.js static](./docs/scenarios/nodejs-static.md) | Vite / Next export / Astro → `dist` / `out` |
 | [PHP + frontend](./docs/scenarios/php-with-frontend.md) | Composer + `npm run build` |
@@ -103,11 +104,11 @@ sudo v-plugin-git-add alice example.com git@github.com:org/site.git main
 # 3. Verify access
 sudo v-plugin-git-test alice example.com
 
-# 4. Configure build (or use the UI)
-sudoedit /home/alice/web/example.com/git-deploy/config.conf
-# Set INSTALL_CMD and OUTPUT_DIR, e.g.:
-#   INSTALL_CMD="npm ci && npm run build"
-#   OUTPUT_DIR=dist
+# 4. Configure build (prefer a repo install script)
+sudo v-plugin-git-set alice example.com \
+  INSTALL_CMD='bash .hestia-install.sh' \
+  OUTPUT_DIR=dist
+# See docs/install-script.md — or inline: INSTALL_CMD='npm ci && npm run build'
 
 # 5. Deploy
 sudo v-plugin-git-deploy alice example.com

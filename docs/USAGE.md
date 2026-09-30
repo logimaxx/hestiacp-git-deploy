@@ -100,7 +100,29 @@ sudo v-plugin-git-list alice example.com json
 
 ## Choosing OUTPUT_DIR and INSTALL_CMD
 
-| Project type | INSTALL_CMD | OUTPUT_DIR |
+### Recommended: install script in the repo
+
+Put build/deploy logic in a committed script and keep the panel setting short:
+
+```bash
+# In the repository (e.g. .hestia-install.sh)
+#!/usr/bin/env bash
+set -euo pipefail
+composer install --no-dev --optimize-autoloader
+# npm ci && npm run build
+# wire env, shared storage, seed data, …
+
+# In Hestia (UI or CLI)
+INSTALL_CMD='bash .hestia-install.sh'
+```
+
+The script runs in `git-src/` with `secrets.env` already exported. Version it with the app, review it in PRs, and reuse the same `INSTALL_CMD` on every server.
+
+Full guide + templates: **[Install script](./install-script.md)**.
+
+### Quick reference (inline or via script)
+
+| Project type | Typical install step | OUTPUT_DIR |
 |---|---|---|
 | Vite / CRA / Vue / Astro (static) | `npm ci && npm run build` | `dist` (or `build`, `out`, …) |
 | Next.js static export | `npm ci && npm run build` | `out` |
@@ -108,9 +130,11 @@ sudo v-plugin-git-list alice example.com json
 | PHP app (Laravel/Symfony root) | `composer install --no-dev --optimize-autoloader` | `.` |
 | PHP + Vite assets | `composer install --no-dev && npm ci && npm run build` | `.` |
 | Static site generator (Hugo, etc.) | `hugo --minify` | `public` |
+| Any non-trivial app | `bash .hestia-install.sh` | per app |
 
 **Rules:**
 
+- Prefer `INSTALL_CMD='bash .hestia-install.sh'` (or `scripts/deploy.sh`) once the command is more than a single tool invocation.
 - `OUTPUT_DIR` is relative to `git-src/` (never absolute).
 - Default is `dist`. If your build writes elsewhere, set it explicitly.
 - `OUTPUT_DIR=.` publishes the repo root (minus excludes). Use a careful `EXCLUDE`.
@@ -360,8 +384,9 @@ The plugin maps **one domain ↔ one branch**. For staging:
 
 ---
 
-## Next: scenarios
+## Next
 
+- **[Install script](./install-script.md)** — recommended deploy entrypoint
 - [PHP application](./scenarios/php-app.md)
 - [Node.js static site](./scenarios/nodejs-static.md)
 - [PHP + frontend build](./scenarios/php-with-frontend.md)

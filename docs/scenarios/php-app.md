@@ -11,15 +11,27 @@ Deploy a PHP site (Laravel, Symfony, custom PHP, WordPress-in-git, etc.) where t
 
 ## Core settings
 
+**Preferred:** commit `.hestia-install.sh` (or `scripts/deploy.sh`) and set:
+
+```bash
+sudo v-plugin-git-set alice example.com \
+  INSTALL_CMD='bash .hestia-install.sh' \
+  OUTPUT_DIR=. \
+  EXCLUDE='.git,.env,.env.*,node_modules,tests,.github,phpunit.xml,.phpunit.result.cache' \
+  TIMEOUT_SECONDS=600
+```
+
+See **[Install script](../install-script.md)** for templates (shared runtime, dotenv, seeding).
+
 | Key | Typical value |
 |---|---|
-| `INSTALL_CMD` | `composer install --no-dev --optimize-autoloader` |
+| `INSTALL_CMD` | `bash .hestia-install.sh` (or inline `composer install --no-dev --optimize-autoloader`) |
 | `OUTPUT_DIR` | `.` (repo root) **or** `public` if only the public dir is served |
 | `EXCLUDE` | Expand defaults so vendor sources stay, junk does not |
 
 ### Document root = repository root
 
-Many simple PHP apps and some frameworks place `index.php` at the repo root:
+Many simple PHP apps and some frameworks place `index.php` at the repo root. Inline equivalent if you skip a script:
 
 ```bash
 sudo v-plugin-git-set alice example.com \
@@ -27,7 +39,6 @@ sudo v-plugin-git-set alice example.com \
   OUTPUT_DIR=. \
   EXCLUDE='.git,.env,.env.*,node_modules,tests,.github,phpunit.xml,.phpunit.result.cache'
 ```
-
 ### Document root = `public/` (Laravel / Symfony public)
 
 Hestia’s webroot is always `public_html/`. Two approaches:
@@ -154,6 +165,7 @@ Curl sends `Host: example.com`. Failed check rolls back to the previous release.
 
 ## Related
 
+- **[Install script](../install-script.md)** — put Composer, dotenv, and shared storage in `.hestia-install.sh`
 - [PHP + frontend build](./php-with-frontend.md)
 - [Usage guide — persistent files](../USAGE.md#persistent-runtime-files-important-for-php)
 - [Troubleshooting](../TROUBLESHOOTING.md)
