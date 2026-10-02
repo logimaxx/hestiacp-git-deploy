@@ -247,25 +247,46 @@ EOF
 # ---------------------------------------------------------------------------
 create_release() {
 	local user="$1" domain="$2" shortsha="$3"
-	local src out_resolved release_id release_path excl_args
+	local src out_dir out_resolved release_id release_path logfile
 	src="$(git_src_dir "$user" "$domain")"
+	out_dir="${OUTPUT_DIR:-dist}"
+	[[ -n "$out_dir" ]] || out_dir="dist"
 
-	out_resolved="$(resolve_output_dir "$src" "${OUTPUT_DIR:-dist}")" || return 1
+	# Default OUTPUT_DIR is dist, which a build would create. A static
+	# checkout has no install step and no dist/ — publish the repo root.
+	if [[ -z "${INSTALL_CMD:-}" && "$out_dir" == "dist" && ! -d "$src/dist" ]]; then
+		log_msg "$user" "$domain" "OUTPUT_DIR dist does not exist and INSTALL_CMD is empty — publishing repository root"
+		out_dir="."
+		set_config_value "$(config_path "$user" "$domain")" "OUTPUT_DIR" "."
+	fi
+
+	# stdout of resolve_output_dir is the path, or the error when it fails
+	if ! out_resolved="$(resolve_output_dir "$src" "$out_dir" 2>&1)"; then
+		log_msg "$user" "$domain" "$out_resolved"
+		printf '%s\n' "$out_resolved"
+		return 1
+	fi
 
 	release_id="$(date -u +%Y%m%d-%H%M%S)-${shortsha}"
 	release_path="$(releases_dir "$user" "$domain")/${release_id}"
 	mkdir -p "$release_path"
 
-	log_msg "$user" "$domain" "Creating release ${release_id} from ${OUTPUT_DIR}"
+	log_msg "$user" "$domain" "Creating release ${release_id} from ${out_dir}"
 
 	build_rsync_excludes "${EXCLUDE}"
-	rsync -a "${RSYNC_EXCLUDES[@]}" "${out_resolved}/" "${release_path}/"
+	logfile="$(log_path "$user" "$domain")"
+	if ! rsync -a "${RSYNC_EXCLUDES[@]}" "${out_resolved}/" "${release_path}/" >>"$logfile" 2>&1; then
+		rm -rf "$release_path"
+		log_msg "$user" "$domain" "rsync into release failed"
+		printf '%s\n' "rsync into release failed"
+		return 1
+	fi
 
 	# Extra safety: never ship .git
 	rm -rf "${release_path}/.git"
 
 	chown_site "$user" "$release_path"
-	echo "$release_id"
+	printf '%s\n' "$release_id"
 }
 
 # ---------------------------------------------------------------------------
@@ -365,7 +386,7 @@ run_deploy() {
 	prev_id="$(current_release_id "$user" "$domain")"
 
 	if ! release_id="$(create_release "$user" "$domain" "$shortsha")"; then
-		fail "create release failed"
+		fail "${release_id:-create release failed}"
 		return 1
 	fi
 

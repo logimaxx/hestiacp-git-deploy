@@ -21,6 +21,8 @@ sudo v-plugin-git-set alice docs.example.com \
 
 Empty `INSTALL_CMD` skips the install step (clone/fetch → copy → go live).
 
+If `OUTPUT_DIR` is still the default `dist` and that folder is not in the checkout, the deploy publishes the repository root and saves `OUTPUT_DIR=.`.
+
 ### Site lives in a subfolder
 
 ```bash

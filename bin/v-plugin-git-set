@@ -84,5 +84,5 @@ for pair in "$@"; do
 	set_config_value "$cfg" "$key" "$quoted"
 done
 
-chown_site "$user" "$cfg"
+fix_git_deploy_perms "$user" "$domain"
 echo "OK"

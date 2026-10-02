@@ -17,6 +17,7 @@ sudo v-plugin-git-list <user> <domain> json
 | 404 on Git Deploy URL | Plugin UI not installed on panel host | `sudo ./install.sh` on the **panel** server |
 | 500 on Git Deploy page | Stale/incomplete web copy | Re-run `sudo ./install.sh`; check `/var/log/hestia/nginx-error.log` |
 | Enable fails / config not readable | Directory perms `750` | Re-run install; `chmod 755 …/git-deploy` and `644` on `config.conf` / `status.json` / `deploy_key.pub` |
+| Save returns the old form values | `config.conf` was rewritten as mode `600`, so the panel could not read it and showed defaults until a deploy ran `chmod 644` | Update the plugin. Save writes the file as `644` itself; no deploy is required |
 
 ---
 
@@ -37,7 +38,7 @@ sudo v-plugin-git-list <user> <domain> json
 |---|---|---|
 | `command not found: npm` / `composer` | Not on site-user PATH | Install tools; verify `sudo -u USER -H bash -lc 'which npm'` |
 | Install timeout | Large `npm ci` / Composer | Raise `TIMEOUT_SECONDS` (e.g. 900) |
-| `OUTPUT_DIR does not exist` | Wrong out dir or build failed silently | Match Vite/Next outDir; run build locally; check log above the error |
+| `OUTPUT_DIR does not exist` / `create release failed` with no “Creating release” line | Publish folder missing. Default is `dist`. The real reason used to be only on stderr, not in `deploy.log` | Static site: set `OUTPUT_DIR=.` (or leave the default `dist` with an empty install command — that now publishes the repo root). After a build, `OUTPUT_DIR` must match the folder the build creates |
 | OOM during Node build | Small VPS | Raise swap / `NODE_OPTIONS` in `secrets.env` / build elsewhere |
 | Private npm 401 | No token | `NPM_TOKEN` in `secrets.env` + `.npmrc` |
 

@@ -164,6 +164,9 @@ function set_config_value() {
 		printf '%s=%s\n' "$key" "$value" >>"$cfg"
 		rm -f "$tmp"
 	fi
+	# mktemp is mode 600. The panel (hestiaweb) reads this file; 600 makes
+	# the UI fall back to defaults, so a save looks like it did nothing.
+	chmod 644 "$cfg"
 }
 
 # ---------------------------------------------------------------------------

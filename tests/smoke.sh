@@ -83,6 +83,17 @@ sed -i 's|^AUTH_METHOD=.*|AUTH_METHOD=https|' "$CFG"
 sed -i 's|^INSTALL_CMD=.*|INSTALL_CMD=|' "$CFG"
 sed -i 's|^OUTPUT_DIR=.*|OUTPUT_DIR=dist|' "$CFG"
 
+echo "== save settings stays readable =="
+"$BIN/v-plugin-git-set" "$USER_NAME" "$DOMAIN" "OUTPUT_DIR=." "INSTALL_CMD="
+grep -q '^OUTPUT_DIR="\."$' "$CFG"
+mode="$(stat -c %a "$CFG")"
+if [[ "$mode" != "644" ]]; then
+	echo "FAIL: config.conf mode is ${mode} after save (panel cannot read 600)" >&2
+	exit 1
+fi
+echo "save readable OK"
+sed -i 's|^OUTPUT_DIR=.*|OUTPUT_DIR=dist|' "$CFG"
+
 echo "== test connection =="
 "$BIN/v-plugin-git-test" "$USER_NAME" "$DOMAIN" | grep -q '^OK$'
 
@@ -138,6 +149,48 @@ echo "== delete =="
 [[ ! -d "${HESTIA_GIT_HOME}/${USER_NAME}/web/${DOMAIN}/git-deploy" ]]
 grep -q 'v2' "$PH"
 echo "delete OK (public_html kept)"
+
+echo "== static repo (no dist/, empty INSTALL_CMD) =="
+STATIC_DOMAIN="static.test"
+mkdir -p "${SMOKE}/home/${USER_NAME}/web/${STATIC_DOMAIN}/public_html"
+STATIC_WORKDIR="${SMOKE}/static-workdir"
+STATIC_REPO="${SMOKE}/static-repo.git"
+mkdir -p "$STATIC_WORKDIR"
+echo '<h1>static</h1>' >"$STATIC_WORKDIR/index.html"
+echo 'secret' >"$STATIC_WORKDIR/.env"
+(
+	cd "$STATIC_WORKDIR"
+	git init -b main
+	git config user.email "smoke@test"
+	git config user.name "Smoke"
+	git add -A
+	git commit -m "static"
+)
+git clone --bare "$STATIC_WORKDIR" "$STATIC_REPO"
+"$BIN/v-plugin-git-add" "$USER_NAME" "$STATIC_DOMAIN" "$STATIC_REPO" main
+STATIC_CFG="${HESTIA_GIT_HOME}/${USER_NAME}/web/${STATIC_DOMAIN}/git-deploy/config.conf"
+sed -i "s|^REPO_URL=.*|REPO_URL=${STATIC_REPO}|" "$STATIC_CFG"
+sed -i 's|^AUTH_METHOD=.*|AUTH_METHOD=https|' "$STATIC_CFG"
+# Leave the default OUTPUT_DIR=dist and empty INSTALL_CMD.
+"$BIN/v-plugin-git-deploy" "$USER_NAME" "$STATIC_DOMAIN" force
+STATIC_PH="${HESTIA_GIT_HOME}/${USER_NAME}/web/${STATIC_DOMAIN}/public_html/index.html"
+grep -q 'static' "$STATIC_PH"
+if [[ -f "${HESTIA_GIT_HOME}/${USER_NAME}/web/${STATIC_DOMAIN}/public_html/.env" ]]; then
+	echo "FAIL: .env leaked to public_html" >&2
+	exit 1
+fi
+grep -q '^OUTPUT_DIR=\.$' "$STATIC_CFG" || grep -q '^OUTPUT_DIR="\."$' "$STATIC_CFG"
+echo "static root publish OK"
+
+echo "== missing explicit OUTPUT_DIR fails visibly =="
+sed -i 's|^OUTPUT_DIR=.*|OUTPUT_DIR=public|' "$STATIC_CFG"
+sed -i 's|^LAST_DEPLOYED_COMMIT=.*|LAST_DEPLOYED_COMMIT=|' "$STATIC_CFG"
+if "$BIN/v-plugin-git-deploy" "$USER_NAME" "$STATIC_DOMAIN" force; then
+	echo "FAIL: expected missing OUTPUT_DIR to fail" >&2
+	exit 1
+fi
+grep -q 'OUTPUT_DIR does not exist: public' "${HESTIA_GIT_HOME}/${USER_NAME}/web/${STATIC_DOMAIN}/git-deploy/deploy.log"
+echo "missing OUTPUT_DIR logged OK"
 
 echo ""
 echo "ALL SMOKE TESTS PASSED"

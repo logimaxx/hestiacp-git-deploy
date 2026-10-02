@@ -91,9 +91,9 @@ if (!empty($_POST["token"])) {
     }
 
     if ($action === "save_setup" && !empty($paths["configured"]) && empty($_SESSION["error_msg"])) {
-        $output_dir = trim((string) ($_POST["output_dir"] ?? "dist"));
+        $output_dir = trim((string) ($_POST["output_dir"] ?? "."));
         if ($output_dir === "") {
-            $output_dir = "dist";
+            $output_dir = ".";
         }
         $pairs = [
             "INSTALL_CMD=" . (string) ($_POST["install_cmd"] ?? ""),
@@ -136,9 +136,9 @@ if (!empty($_POST["token"])) {
         if ($branch === "") {
             $branch = "main";
         }
-        $output_dir = trim((string) ($_POST["output_dir"] ?? "dist"));
+        $output_dir = trim((string) ($_POST["output_dir"] ?? "."));
         if ($output_dir === "") {
-            $output_dir = "dist";
+            $output_dir = ".";
         }
         $pairs = [
             "REPO_URL=" . trim((string) ($_POST["repo_url"] ?? "")),

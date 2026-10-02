@@ -119,7 +119,7 @@
 			<!-- Step 3 -->
 			<div class="u-mb30">
 				<h2 class="u-mb10">3. <?= tohtml(_("Build settings")) ?></h2>
-				<p class="u-mb10 hint"><?= tohtml(_("Optional. Leave install command empty to publish files as-is from the output directory.")) ?></p>
+				<p class="u-mb10 hint"><?= tohtml(_("Optional. Leave the install command empty for a static site. Output directory . publishes the repository root.")) ?></p>
 				<form method="post">
 					<input type="hidden" name="token" value="<?= tohtml($_SESSION["token"]) ?>">
 					<input type="hidden" name="domain" value="<?= tohtml($v_domain) ?>">
@@ -130,7 +130,8 @@
 					</div>
 					<div class="u-mb15">
 						<label for="output_dir" class="form-label"><?= tohtml(_("Output directory")) ?></label>
-						<input type="text" class="form-control" name="output_dir" id="output_dir" value="<?= tohtml($cfg["OUTPUT_DIR"] ?? "dist") ?>">
+						<input type="text" class="form-control" name="output_dir" id="output_dir" value="<?= tohtml($cfg["OUTPUT_DIR"] ?? "dist") ?>" placeholder=".">
+						<small class="hint"><?= tohtml(_("Use . to copy the repository into public_html. dist is only for a build output folder.")) ?></small>
 					</div>
 					<button type="submit" class="button button-secondary">
 						<i class="fas fa-floppy-disk"></i><?= tohtml(_("Save build settings")) ?>
@@ -225,7 +226,8 @@
 				</div>
 				<div class="u-mb10">
 					<label for="output_dir" class="form-label"><?= tohtml(_("Output directory")) ?></label>
-					<input type="text" class="form-control" name="output_dir" id="output_dir" value="<?= tohtml($cfg["OUTPUT_DIR"] ?? "dist") ?>">
+					<input type="text" class="form-control" name="output_dir" id="output_dir" value="<?= tohtml($cfg["OUTPUT_DIR"] ?? "dist") ?>" placeholder=".">
+					<small class="hint"><?= tohtml(_("Use . to copy the repository into public_html. dist is only for a build output folder.")) ?></small>
 					<?php if (($cfg["OUTPUT_DIR"] ?? "") === "." || ($cfg["OUTPUT_DIR"] ?? "") === "") { ?>
 						<small class="hint"><?= tohtml(_("Warning: deploying repo root — ensure EXCLUDE covers .env and .git")) ?></small>
 					<?php } ?>
