@@ -1,5 +1,6 @@
-#!/usr/bin/env php
 <?php
+declare(strict_types=1);
+
 /**
  * Hestia Git Deploy — webhook listener (Phase 2)
  *
@@ -18,8 +19,6 @@
  * Validates GitHub (X-Hub-Signature-256) or GitLab (X-Gitlab-Token),
  * filters branch, responds 200 immediately, starts async deploy.
  */
-
-declare(strict_types=1);
 
 header('Content-Type: text/plain; charset=utf-8');
 
